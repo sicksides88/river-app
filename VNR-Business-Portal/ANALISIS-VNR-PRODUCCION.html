@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis VNR - Estado del Desarrollo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .summary-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .summary-card.highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .summary-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .summary-card .label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .progress-section {
+            margin-bottom: 40px;
+        }
+
+        .progress-item {
+            margin-bottom: 20px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 12px;
+            background: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 6px;
+        }
+
+        .progress-fill.green { background: linear-gradient(90deg, #28a745, #20c997); }
+        .progress-fill.yellow { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+        .progress-fill.red { background: linear-gradient(90deg, #dc3545, #e83e8c); }
+
+        h2 {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: inline-block;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            color: #444;
+            margin: 25px 0 15px 0;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .check-list {
+            list-style: none;
+        }
+
+        .check-list li {
+            padding: 10px 0;
+            padding-left: 35px;
+            position: relative;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .check-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .missing-list li::before {
+            content: "✗";
+            color: #dc3545;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+
+        .api-endpoint {
+            font-family: 'Monaco', 'Consolas', monospace;
+            background: #f4f4f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin: 2px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .column-done {
+            border-left: 4px solid #28a745;
+            padding-left: 20px;
+        }
+
+        .column-missing {
+            border-left: 4px solid #dc3545;
+            padding-left: 20px;
+        }
+
+        .figma-note {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .figma-note h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .category-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .category-card h4 {
+            margin-bottom: 15px;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .category-card ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .category-card li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .category-card li:last-child {
+            border-bottom: none;
+        }
+
+        .category-card.done li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .category-card.missing li::before {
+            content: "✗";
+            position: absolute;
+            left: 0;
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 30px 40px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .summary-grid, .two-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>VNR - Estado del Desarrollo</h1>
+            <p class="subtitle">App de Movilidad | React Native (Expo) + Express.js + Supabase</p>
+        </div>
+
+        <div class="content">
+            <!-- Resumen -->
+            <div class="section">
+                <h2>Resumen</h2>
+
+                <div class="summary-grid">
+                    <div class="summary-card highlight">
+                        <div class="value">40%</div>
+                        <div class="label">Funcionalidad Completa</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="value">60%</div>
+                        <div class="label">Por Desarrollar</div>
+                    </div>
+                </div>
+
+                <div class="progress-section">
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span>Backend (APIs)</span>
+                            <span>65%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill green" style="width: 65%"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span>Frontend (Pantallas)</span>
+                            <span>75%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill green" style="width: 75%"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span>Seguridad</span>
+                            <span>35%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill yellow" style="width: 35%"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span>Pagos</span>
+                            <span>0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill red" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span>Mapas / GPS Real</span>
+                            <span>15%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill red" style="width: 15%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nota Figma -->
+            <div class="figma-note">
+                <h3>📐 Nota: Diseño Figma Disponible</h3>
+                <p>Las pantallas están funcionales pero con estilos básicos. Se cuenta con el diseño completo en Figma para implementar los estilos finales de la UI.</p>
+            </div>
+
+            <!-- DESARROLLADO -->
+            <div class="section">
+                <h2>✅ Desarrollado y Funcional</h2>
+
+                <div class="category-card done">
+                    <h4>🔐 Autenticación</h4>
+                    <ul>
+                        <li>Registro de usuarios con validación</li>
+                        <li>Login con JWT (Supabase Auth)</li>
+                        <li>Logout</li>
+                        <li>Middleware de autenticación (Bearer token)</li>
+                        <li>Middleware de autorización por roles (user, driver, admin)</li>
+                        <li>Perfil de usuario (getMe, updateProfile)</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>🗄️ Base de Datos (Supabase)</h4>
+                    <ul>
+                        <li>PostgreSQL configurado</li>
+                        <li>Tabla <code>profiles</code> - datos de usuarios</li>
+                        <li>Tabla <code>rides</code> - viajes</li>
+                        <li>Tabla <code>deliveries</code> - envíos y fletes</li>
+                        <li>Tabla <code>saved_locations</code> - direcciones guardadas</li>
+                        <li>Triggers automáticos para crear perfiles</li>
+                        <li>Row Level Security (RLS) configurado</li>
+                        <li>Índices en tablas principales</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>🚗 API de Viajes (Rides)</h4>
+                    <ul>
+                        <li><span class="api-endpoint">POST /api/rides</span> Crear solicitud de viaje</li>
+                        <li><span class="api-endpoint">GET /api/rides</span> Obtener viajes del usuario</li>
+                        <li><span class="api-endpoint">GET /api/rides/:id</span> Obtener viaje específico</li>
+                        <li><span class="api-endpoint">PUT /api/rides/:id/cancel</span> Cancelar viaje</li>
+                        <li><span class="api-endpoint">GET /api/rides/available</span> Viajes disponibles (driver)</li>
+                        <li><span class="api-endpoint">PUT /api/rides/:id/accept</span> Aceptar viaje (driver)</li>
+                        <li><span class="api-endpoint">PUT /api/rides/:id/status</span> Actualizar estado</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>📦 API de Envíos (Deliveries)</h4>
+                    <ul>
+                        <li><span class="api-endpoint">POST /api/deliveries</span> Crear envío</li>
+                        <li><span class="api-endpoint">GET /api/deliveries</span> Obtener envíos</li>
+                        <li><span class="api-endpoint">GET /api/deliveries/:id</span> Obtener envío específico</li>
+                        <li><span class="api-endpoint">GET /api/deliveries/track/:tracking</span> Rastreo público</li>
+                        <li><span class="api-endpoint">PUT /api/deliveries/:id/cancel</span> Cancelar envío</li>
+                        <li><span class="api-endpoint">PUT /api/deliveries/:id/accept</span> Aceptar envío (cadete)</li>
+                        <li><span class="api-endpoint">PUT /api/deliveries/:id/status</span> Actualizar estado</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>👨‍✈️ API de Conductores</h4>
+                    <ul>
+                        <li><span class="api-endpoint">POST /api/drivers/register</span> Registrar como conductor</li>
+                        <li><span class="api-endpoint">GET /api/drivers/status</span> Ver estado</li>
+                        <li><span class="api-endpoint">POST /api/drivers/documents</span> Subir documento</li>
+                        <li><span class="api-endpoint">GET /api/drivers/documents</span> Ver documentos</li>
+                        <li><span class="api-endpoint">POST /api/drivers/vehicles</span> Agregar vehículo</li>
+                        <li><span class="api-endpoint">GET /api/drivers/vehicles</span> Ver vehículos</li>
+                        <li><span class="api-endpoint">POST /api/drivers/availability</span> Actualizar disponibilidad</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>📍 API de Ubicaciones</h4>
+                    <ul>
+                        <li><span class="api-endpoint">GET /api/locations/recent</span> Ubicaciones recientes</li>
+                        <li><span class="api-endpoint">GET /api/locations/frequent</span> Ubicaciones frecuentes</li>
+                        <li><span class="api-endpoint">POST /api/locations</span> Guardar ubicación</li>
+                        <li><span class="api-endpoint">PUT /api/locations/:id</span> Actualizar</li>
+                        <li><span class="api-endpoint">DELETE /api/locations/:id</span> Eliminar</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>📁 Almacenamiento</h4>
+                    <ul>
+                        <li>Supabase Storage para archivos</li>
+                        <li>Subida de documentos (licencias, DNI)</li>
+                        <li>URLs firmadas para acceso seguro</li>
+                        <li>Límite de 10MB por archivo</li>
+                    </ul>
+                </div>
+
+                <h3>📱 Pantallas Frontend (57 archivos)</h3>
+
+                <div class="category-card done">
+                    <h4>Autenticación</h4>
+                    <ul>
+                        <li>LoginScreen - Inicio de sesión</li>
+                        <li>RegisterScreen - Registro completo</li>
+                        <li>Validación de formularios</li>
+                        <li>Manejo de errores</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Home</h4>
+                    <ul>
+                        <li>HomeScreen - Menú principal con servicios</li>
+                        <li>Tabs de servicios (Vuelta Segura, Envíos, Fletes, Chofer)</li>
+                        <li>Barra de búsqueda</li>
+                        <li>Carrusel de promociones</li>
+                        <li>Iconos de servicios</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Viajes</h4>
+                    <ul>
+                        <li>VueltaSeguraScreen - Solicitar viaje</li>
+                        <li>SelectServiceScreen - Seleccionar tipo de servicio</li>
+                        <li>TripActiveScreen - Viaje en curso</li>
+                        <li>LocationInput - Selección de ubicaciones con geocoding</li>
+                        <li>Cálculo de precio estimado</li>
+                        <li>Cálculo de duración estimada</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Envíos</h4>
+                    <ul>
+                        <li>EnviosScreen - Crear envío</li>
+                        <li>EnviosInitialScreen - Selección inicial</li>
+                        <li>Tipos de paquete (sobre, caja S/M/L, frágil)</li>
+                        <li>DeliveryConfirmScreen - Confirmación</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Fletes</h4>
+                    <ul>
+                        <li>FletesScreen - Solicitar flete</li>
+                        <li>FletesInitialScreen - Selección inicial</li>
+                        <li>Tipos de vehículo (utilitario, camioneta, camión)</li>
+                        <li>Selector de ayudantes</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Modo Conductor</h4>
+                    <ul>
+                        <li>DriverHomeScreen - Panel del conductor</li>
+                        <li>DriverEarningsScreen - Ganancias</li>
+                        <li>VehiclesScreen - Mis vehículos</li>
+                        <li>WalletScreen - Billetera</li>
+                        <li>DocumentsScreen - Documentos</li>
+                        <li>Sistema de conexión/desconexión</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Marketplace</h4>
+                    <ul>
+                        <li>MarketplaceScreen - Tienda</li>
+                        <li>ProductoDetalleScreen - Detalle de producto</li>
+                        <li>Tabs Comprar/Alquilar</li>
+                        <li>Grid de productos (mock data)</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Perfil y Configuración</h4>
+                    <ul>
+                        <li>ProfileScreen - Menú de perfil</li>
+                        <li>InformacionPersonalScreen - Datos personales</li>
+                        <li>SeguridadScreen - Seguridad</li>
+                        <li>ProteccionDatosScreen - Privacidad</li>
+                        <li>SettingsScreen - Configuración</li>
+                        <li>ActivityScreen - Historial de actividad</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Componentes Comunes</h4>
+                    <ul>
+                        <li>Button - Botones estilizados</li>
+                        <li>Input - Campos de entrada</li>
+                        <li>Card - Tarjetas</li>
+                        <li>LocationInput - Input con autocomplete</li>
+                        <li>MapViewWrapper - Wrapper de mapas</li>
+                        <li>Loading - Indicadores de carga</li>
+                        <li>TabBar - Navegación inferior</li>
+                    </ul>
+                </div>
+
+                <div class="category-card done">
+                    <h4>Servicios Frontend</h4>
+                    <ul>
+                        <li>authService - Autenticación</li>
+                        <li>rideService - Viajes</li>
+                        <li>deliveryService - Envíos</li>
+                        <li>driverService - Conductores</li>
+                        <li>locationService - Ubicaciones y geocoding</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- FALTA -->
+            <div class="section">
+                <h2>❌ Falta Desarrollar</h2>
+
+                <div class="category-card missing">
+                    <h4>💳 Sistema de Pagos (CRÍTICO)</h4>
+                    <ul>
+                        <li>Integración Stripe o MercadoPago</li>
+                        <li>Wallet del usuario (saldo, recargas, retiros)</li>
+                        <li>Wallet del conductor (ganancias, retiros)</li>
+                        <li>Historial de transacciones</li>
+                        <li>Facturación / Recibos automáticos</li>
+                        <li>Sistema de reembolsos</li>
+                        <li>División de pagos (plataforma/conductor)</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>🗺️ Google Maps Completo (CRÍTICO)</h4>
+                    <ul>
+                        <li>Integración Google Maps SDK en la app</li>
+                        <li>Autocomplete de direcciones (Places API)</li>
+                        <li>Cálculo de rutas reales (Directions API)</li>
+                        <li>Cálculo de distancia real (Distance Matrix API)</li>
+                        <li>Tracking en tiempo real del conductor</li>
+                        <li>Navegación GPS para conductores</li>
+                        <li>Mostrar conductor en el mapa</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>🔔 Notificaciones Push (CRÍTICO)</h4>
+                    <ul>
+                        <li>Configuración Firebase Cloud Messaging</li>
+                        <li>Notificación: viaje aceptado</li>
+                        <li>Notificación: conductor cerca</li>
+                        <li>Notificación: nuevo viaje disponible (conductor)</li>
+                        <li>Notificación: pago recibido</li>
+                        <li>Notificación: mensaje nuevo</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>⚡ WebSockets / Tiempo Real (CRÍTICO)</h4>
+                    <ul>
+                        <li>Configurar Socket.io en backend</li>
+                        <li>Ubicación en vivo del conductor (cada 5 segundos)</li>
+                        <li>Estado del viaje en tiempo real</li>
+                        <li>Matching automático de viajes (asignar conductor cercano)</li>
+                        <li>Actualización de disponibilidad de conductores</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>🔒 Seguridad (CRÍTICO)</h4>
+                    <ul>
+                        <li>Rate limiting (protección contra spam)</li>
+                        <li>Helmet.js (headers de seguridad)</li>
+                        <li>Validación de inputs (express-validator)</li>
+                        <li>HTTPS/SSL en producción</li>
+                        <li>Sanitización de datos</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>⭐ Sistema de Rating</h4>
+                    <ul>
+                        <li>Tabla de ratings en base de datos</li>
+                        <li>API de ratings (CRUD)</li>
+                        <li>UI para calificar (estrellas + comentario)</li>
+                        <li>Promedio de calificación en perfil</li>
+                        <li>Historial de calificaciones</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>💬 Chat Usuario-Conductor</h4>
+                    <ul>
+                        <li>Tabla de mensajes en base de datos</li>
+                        <li>WebSocket para chat en tiempo real</li>
+                        <li>UI de chat (pantalla de mensajes)</li>
+                        <li>Notificaciones de mensaje nuevo</li>
+                        <li>Llamada directa al conductor</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>🔐 Autenticación Avanzada</h4>
+                    <ul>
+                        <li>Recuperar contraseña (email con link)</li>
+                        <li>Verificación de email</li>
+                        <li>2FA (código por SMS o App)</li>
+                        <li>Login con Google/Apple</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>📊 Panel Admin (Web)</h4>
+                    <ul>
+                        <li>Panel web en React</li>
+                        <li>Gestión de usuarios</li>
+                        <li>Gestión de conductores (aprobar documentos)</li>
+                        <li>Gestión de viajes (ver todos)</li>
+                        <li>Reportes y estadísticas</li>
+                        <li>Configuración de precios</li>
+                        <li>Gestión de promociones</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>🧪 Testing y DevOps</h4>
+                    <ul>
+                        <li>Testing unitario (Jest)</li>
+                        <li>Testing E2E (Detox/Cypress)</li>
+                        <li>CI/CD Pipeline (GitHub Actions)</li>
+                        <li>Monitoring de errores (Sentry)</li>
+                        <li>Logging centralizado</li>
+                        <li>Analytics (Mixpanel/Amplitude)</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>📱 Funcionalidades Adicionales</h4>
+                    <ul>
+                        <li>Viajes programados (agendar para después)</li>
+                        <li>Viajes compartidos</li>
+                        <li>Código promocional / Cupones</li>
+                        <li>Programa de referidos</li>
+                        <li>Modo offline básico</li>
+                        <li>Soporte multiidioma</li>
+                    </ul>
+                </div>
+
+                <div class="category-card missing">
+                    <h4>🎨 Diseño UI (Figma pendiente)</h4>
+                    <ul>
+                        <li>Implementar estilos del Figma en todas las pantallas</li>
+                        <li>Animaciones y transiciones</li>
+                        <li>Tema oscuro</li>
+                        <li>Iconografía personalizada</li>
+                        <li>Splash screen animado</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Servicios Externos -->
+            <div class="section">
+                <h2>🔌 Servicios Externos Necesarios</h2>
+
+                <div class="category-card">
+                    <h4>Obligatorios para lanzar</h4>
+                    <ul style="list-style: disc; padding-left: 40px;">
+                        <li><strong>Supabase</strong> - Base de datos + Auth + Storage (ya configurado)</li>
+                        <li><strong>Google Maps Platform</strong> - Mapas, rutas, geocoding</li>
+                        <li><strong>Stripe o MercadoPago</strong> - Procesamiento de pagos</li>
+                        <li><strong>Firebase</strong> - Push notifications</li>
+                        <li><strong>Railway / Render / AWS</strong> - Hosting del backend</li>
+                    </ul>
+                </div>
+
+                <div class="category-card">
+                    <h4>Recomendados</h4>
+                    <ul style="list-style: disc; padding-left: 40px;">
+                        <li><strong>SendGrid</strong> - Emails transaccionales</li>
+                        <li><strong>Twilio</strong> - SMS para verificación</li>
+                        <li><strong>Sentry</strong> - Monitoreo de errores</li>
+                        <li><strong>CloudFlare</strong> - CDN + protección DDoS</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Checklist -->
+            <div class="section">
+                <h2>✅ Checklist Pre-Lanzamiento</h2>
+
+                <div class="two-columns">
+                    <div class="category-card missing">
+                        <h4>Técnico</h4>
+                        <ul>
+                            <li>HTTPS configurado</li>
+                            <li>Rate limiting activo</li>
+                            <li>Backups automáticos de DB</li>
+                            <li>Monitoring de errores</li>
+                            <li>Logs centralizados</li>
+                            <li>Tests con >70% coverage</li>
+                        </ul>
+                    </div>
+                    <div class="category-card missing">
+                        <h4>Legal</h4>
+                        <ul>
+                            <li>Términos de servicio</li>
+                            <li>Política de privacidad</li>
+                            <li>Cumplimiento GDPR/CCPA</li>
+                            <li>Licencia de transporte</li>
+                        </ul>
+                    </div>
+                    <div class="category-card missing">
+                        <h4>Cuentas Necesarias</h4>
+                        <ul>
+                            <li>Stripe/MercadoPago verificada</li>
+                            <li>Google Maps con billing</li>
+                            <li>Apple Developer Account</li>
+                            <li>Google Play Console</li>
+                        </ul>
+                    </div>
+                    <div class="category-card missing">
+                        <h4>Marketing</h4>
+                        <ul>
+                            <li>Landing page</li>
+                            <li>Redes sociales</li>
+                            <li>Plan adquisición usuarios</li>
+                            <li>Plan adquisición conductores</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>VNR - Análisis de Estado del Desarrollo</p>
+            <p>29 de Diciembre, 2025</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "_comment": "La configuración principal está en app.config.js que lee las variables de entorno",
+  "expo": {
+    "name": "VNR",
+    "slug": "vnr-app",
+    "version": "1.0.0"
+  }
+}

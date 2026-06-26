@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "617893041854",
+    "project_id": "vnr-app-69b3b",
+    "storage_bucket": "vnr-app-69b3b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:617893041854:android:0abd628def9133133a30ef",
+        "android_client_info": {
+          "package_name": "com.vnr.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrezFC-NWg1FDQlsI3ytgwlReCEMtoEDw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:617893041854:android:23a16d7e150063bf3a30ef",
+        "android_client_info": {
+          "package_name": "com.vnr.chofer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrezFC-NWg1FDQlsI3ytgwlReCEMtoEDw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

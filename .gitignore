@@ -1,0 +1,46 @@
+# ============================================================
+# VNR Monorepo — .gitignore
+# ============================================================
+
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Expo / RN
+.expo/
+**/.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# Builds web (Vite)
+**/dist/
+**/build/
+
+# Native / firmas (nunca subir keystores)
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.keystore
+*.mobileprovision
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# Backend env con secretos de servidor (MP, service-role, etc.)
+VNR-Business-Portal/backend/.env
+VNR-CRM/.env
+VNR-Business-Portal/business-portal/.env
+
+# OS
+.DS_Store
+**/.DS_Store
+
+# PDF personal (no es material del proyecto)
+Gmail*.pdf

@@ -1,0 +1,11 @@
+export { default as LoginPage } from './LoginPage';
+export { default as DashboardPage } from './DashboardPage';
+export { default as MapaPage } from './MapaPage';
+export { default as KYCPage } from './KYCPage';
+export { default as TarifasPage } from './TarifasPage';
+export { default as UsersPage } from './UsersPage';
+export { default as MarketplacePage } from './MarketplacePage';
+export { default as PagosPage } from './PagosPage';
+export { default as ReportesPage } from './ReportesPage';
+export { default as AuditoriaPage } from './AuditoriaPage';
+export { default as LegalesPage } from './LegalesPage';
