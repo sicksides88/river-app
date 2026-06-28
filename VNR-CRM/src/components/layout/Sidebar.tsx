@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Map,
-  Truck,
+  Sailboat,
   Clock,
   Receipt,
   LogOut,
@@ -17,7 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 const navigation = [
   { name: 'Operaciones', href: '/', icon: LayoutDashboard },
   { name: 'Mapa operativo', href: '/mapa', icon: Map },
-  { name: 'Despacho', href: '/despacho', icon: Truck },
+  { name: 'Despacho', href: '/despacho', icon: Sailboat },
   { name: 'Turnos guardia', href: '/turnos', icon: Clock },
   { name: 'Alta telefónica', href: '/alta', icon: Receipt },
   { name: 'Usuarios', href: '/usuarios', icon: Users },

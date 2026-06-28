@@ -9,6 +9,7 @@ import {
   appendCancellationToNotes,
   readCancellationReason,
   parseRideNotes,
+  mergeRideNotes,
   setEtaMinutes,
   appendTimelineEvent,
   mapRiverStatusToDb,
@@ -417,17 +418,19 @@ export const acceptRide = async (req, res) => {
       driverId,
       etaMinutes: resolvedEta,
     });
+    notesWithEta = mergeRideNotes(notesWithEta, { assignedAt: new Date().toISOString() });
+
+    const updatePayload = {
+      driver_id: driverId,
+      status: 'accepted',
+      notes: notesWithEta,
+    };
+    if (vehicleId) updatePayload.vehicle_id = vehicleId;
 
     // Asignar conductor al viaje
     const { data: ride, error } = await supabaseAdmin
       .from('rides')
-      .update({
-        driver_id: driverId,
-        vehicle_id: vehicleId,
-        status: 'accepted',
-        accepted_at: new Date().toISOString(),
-        notes: notesWithEta,
-      })
+      .update(updatePayload)
       .eq('id', rideId)
       .select('*, user:user_id(id, nombre, apellido, avatar, telefono_numero, email)')
       .single();

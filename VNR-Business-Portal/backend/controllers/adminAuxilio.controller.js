@@ -7,6 +7,7 @@ import {
   setEtaMinutes,
   appendTimelineEvent,
   mapDbStatusToRiver,
+  getAcceptedAtFromRide,
 } from '../utils/rideNotes.js';
 import { getEmergencyPriority } from '../services/geo.service.js';
 
@@ -68,7 +69,7 @@ const mapRideToAdminAuxilio = (ride) => {
         ? { id: ride.driver_id }
         : null,
     created_at: ride.created_at,
-    accepted_at: ride.accepted_at,
+    accepted_at: getAcceptedAtFromRide(ride),
     arrived_at: ride.arrived_at,
     started_at: ride.started_at,
     completed_at: ride.completed_at,
@@ -280,13 +281,13 @@ export const assignAdminAuxilio = async (req, res) => {
     if (vehicleId) {
       notes = mergeRideNotes(notes, { patrolVehicleId: vehicleId });
     }
+    notes = mergeRideNotes(notes, { assignedAt: new Date().toISOString() });
 
     const { data: ride, error } = await supabaseAdmin
       .from('rides')
       .update({
         driver_id: driverId,
         status: 'accepted',
-        accepted_at: new Date().toISOString(),
         notes,
       })
       .eq('id', rideId)

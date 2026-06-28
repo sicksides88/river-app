@@ -91,3 +91,17 @@ export const readCancellationReason = (ride) => {
   const meta = parseRideNotes(ride.notes);
   return meta.cancellationReason || null;
 };
+
+/** Fecha de asignación: columna accepted_at o fallback en notes (timeline / assignedAt). */
+export const getAcceptedAtFromRide = (ride) => {
+  if (ride?.accepted_at) return ride.accepted_at;
+  const meta = parseRideNotes(ride?.notes);
+  if (meta.assignedAt) return meta.assignedAt;
+  const events = Array.isArray(meta.timeline) ? meta.timeline : [];
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    if (events[i].event === 'assigned' || events[i].event === 'accepted') {
+      return events[i].at || null;
+    }
+  }
+  return null;
+};
