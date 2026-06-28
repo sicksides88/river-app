@@ -44,9 +44,13 @@ const SearchSelect: React.FC<SearchSelectProps> = ({
   const [options, setOptions] = useState<SearchSelectOption[]>([]);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
 
   useEffect(() => {
     if (!open) return;
+
+    let cancelled = false;
 
     const timer = setTimeout(async () => {
       const trimmed = query.trim();
@@ -55,12 +59,12 @@ const SearchSelect: React.FC<SearchSelectProps> = ({
         if (minSearchLength === 0) {
           setLoading(true);
           try {
-            const results = await onSearch('');
-            setOptions(results);
+            const results = await onSearchRef.current('');
+            if (!cancelled) setOptions(results);
           } catch {
-            setOptions([]);
+            if (!cancelled) setOptions([]);
           } finally {
-            setLoading(false);
+            if (!cancelled) setLoading(false);
           }
         } else {
           setOptions([]);
@@ -71,17 +75,20 @@ const SearchSelect: React.FC<SearchSelectProps> = ({
 
       setLoading(true);
       try {
-        const results = await onSearch(trimmed);
-        setOptions(results);
+        const results = await onSearchRef.current(trimmed);
+        if (!cancelled) setOptions(results);
       } catch {
-        setOptions([]);
+        if (!cancelled) setOptions([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
-  }, [open, query, minSearchLength, onSearch]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, query, minSearchLength]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

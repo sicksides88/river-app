@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import type { Profile } from '../types/database';
@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -152,14 +152,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Error en login:', error);
       return { error: error as Error };
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     setSession(null);
-  };
+  }, []);
 
   const role = profile?.role;
   const isCrmUser = role === 'admin' || role === 'operator' || role === 'auditor';
@@ -168,19 +168,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isSuperAdmin = role === 'admin';
   const isAdmin = isCrmUser;
 
-  const value = {
-    user,
-    profile,
-    session,
-    loading,
-    signIn,
-    signOut,
-    isCrmUser,
-    isReadOnly,
-    canWrite,
-    isSuperAdmin,
-    isAdmin,
-  };
+  const value = useMemo(
+    () => ({
+      user,
+      profile,
+      session,
+      loading,
+      signIn,
+      signOut,
+      isCrmUser,
+      isReadOnly,
+      canWrite,
+      isSuperAdmin,
+      isAdmin,
+    }),
+    [user, profile, session, loading, signIn, signOut, isCrmUser, isReadOnly, canWrite, isSuperAdmin, isAdmin]
+  );
 
   return (
     <AuthContext.Provider value={value}>

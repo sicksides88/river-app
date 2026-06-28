@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import { Layout } from '../../components/layout';
 import { SearchSelect, SearchSelectOption } from '../../components/common';
+import { useGoogleMaps } from '../../context/GoogleMapsContext';
 import { auxilioAdminService, NavigatorVessel } from '../../services/auxilioAdmin.service';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
@@ -31,10 +32,7 @@ const AltaAuxilioTelefonico: React.FC = () => {
     vesselName: '',
   });
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-alta',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-  });
+  const { isLoaded, loadError } = useGoogleMaps();
 
   const searchNavigators = useCallback(
     (query: string) => auxilioAdminService.searchUsersAsOptions(query),

@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { GoogleMapsProvider } from './context/GoogleMapsContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { LoginPage } from './pages';
 import {
   OperacionesDashboard,
@@ -77,9 +79,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <Router>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
+          <GoogleMapsProvider>
+            <ErrorBoundary>
+              <AuthProvider>
+                <AppRoutes />
+              </AuthProvider>
+            </ErrorBoundary>
+          </GoogleMapsProvider>
         </Router>
       </ToastProvider>
     </QueryClientProvider>

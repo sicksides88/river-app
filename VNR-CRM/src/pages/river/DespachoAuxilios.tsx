@@ -87,8 +87,12 @@ const DespachoAuxilios: React.FC = () => {
       });
       toast.success('Patrón asignado correctamente');
       refetch();
-    } catch {
-      toast.error('No se pudo asignar el patrón');
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast.error(msg || 'No se pudo asignar el patrón');
     } finally {
       setAssigning(null);
     }

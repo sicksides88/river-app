@@ -13,6 +13,7 @@ export interface AdminAuxilio {
   status: string;
   riverStatus?: string;
   emergencyType?: string;
+  failureTypes?: string[];
   etaMinutes?: number;
   priority?: number;
   priorityOverride?: number | null;
@@ -27,6 +28,7 @@ export interface AdminAuxilio {
   };
   user?: AdminAuxilioUser | null;
   driver?: AdminAuxilioUser | null;
+  driverLocation?: { lat: number; lng: number; updatedAt?: string };
   created_at?: string;
   accepted_at?: string;
   completed_at?: string;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useCallback } from 'react';
 import toast, { Toaster, ToastOptions } from 'react-hot-toast';
 
 interface ToastContextType {
@@ -31,7 +31,7 @@ const baseStyle = {
 };
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
-  const success = (message: string, options?: ToastOptions) => {
+  const success = useCallback((message: string, options?: ToastOptions) => {
     toast.success(message, {
       duration: 4000,
       style: {
@@ -46,9 +46,9 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       },
       ...options,
     });
-  };
+  }, []);
 
-  const error = (message: string, options?: ToastOptions) => {
+  const error = useCallback((message: string, options?: ToastOptions) => {
     toast.error(message, {
       duration: 5000,
       style: {
@@ -63,9 +63,9 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       },
       ...options,
     });
-  };
+  }, []);
 
-  const info = (message: string, options?: ToastOptions) => {
+  const info = useCallback((message: string, options?: ToastOptions) => {
     toast(message, {
       duration: 4000,
       icon: 'ℹ️',
@@ -77,9 +77,9 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       },
       ...options,
     });
-  };
+  }, []);
 
-  const warning = (message: string, options?: ToastOptions) => {
+  const warning = useCallback((message: string, options?: ToastOptions) => {
     toast(message, {
       duration: 4000,
       icon: '⚠️',
@@ -91,23 +91,26 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       },
       ...options,
     });
-  };
+  }, []);
 
-  const dismiss = (toastId?: string) => {
+  const dismiss = useCallback((toastId?: string) => {
     if (toastId) {
       toast.dismiss(toastId);
     } else {
       toast.dismiss();
     }
-  };
+  }, []);
 
-  const value = {
-    success,
-    error,
-    info,
-    warning,
-    dismiss,
-  };
+  const value = useMemo(
+    () => ({
+      success,
+      error,
+      info,
+      warning,
+      dismiss,
+    }),
+    [success, error, info, warning, dismiss]
+  );
 
   return (
     <ToastContext.Provider value={value}>

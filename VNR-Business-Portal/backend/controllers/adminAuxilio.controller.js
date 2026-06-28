@@ -10,11 +10,19 @@ import {
 } from '../utils/rideNotes.js';
 import { getEmergencyPriority } from '../services/geo.service.js';
 
+const parseCoord = (value) => {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
 const mapRideToAdminAuxilio = (ride) => {
   if (!ride) return null;
   const meta = parseRideNotes(ride.notes);
   const user = ride.user || ride.profiles;
   const driver = ride.driver || ride.driver_profile;
+  const pickupLat = parseCoord(ride.pickup_lat);
+  const pickupLng = parseCoord(ride.pickup_lng);
 
   return {
     id: ride.id,
@@ -23,7 +31,10 @@ const mapRideToAdminAuxilio = (ride) => {
     serviceType: ride.service_type,
     pickup: {
       address: ride.pickup_address,
-      coordinates: { lat: ride.pickup_lat, lng: ride.pickup_lng },
+      coordinates:
+        pickupLat != null && pickupLng != null
+          ? { lat: pickupLat, lng: pickupLng }
+          : { lat: null, lng: null },
     },
     emergencyType: meta.emergencyType,
     failureTypes: meta.failureTypes || [],
@@ -36,6 +47,7 @@ const mapRideToAdminAuxilio = (ride) => {
     vessel: meta.vessel,
     vesselId: meta.vesselId,
     vesselName: meta.vesselName,
+    patrolVehicleId: meta.patrolVehicleId ?? null,
     user: user
       ? {
           id: user.id,
@@ -63,6 +75,38 @@ const mapRideToAdminAuxilio = (ride) => {
   };
 };
 
+/** Ubicación GPS actual de patrones asignados (embarcación de auxilio) */
+const attachDriverLocations = async (auxilios) => {
+  const driverIds = [...new Set(auxilios.map((a) => a.driver?.id).filter(Boolean))];
+  if (!driverIds.length) return auxilios;
+
+  const { data, error } = await supabaseAdmin
+    .from('driver_availability')
+    .select('driver_id, current_latitude, current_longitude, last_location_update')
+    .in('driver_id', driverIds);
+
+  if (error || !data?.length) return auxilios;
+
+  const locByDriver = Object.fromEntries(
+    data.map((row) => [
+      row.driver_id,
+      {
+        lat: parseCoord(row.current_latitude),
+        lng: parseCoord(row.current_longitude),
+        updatedAt: row.last_location_update,
+      },
+    ])
+  );
+
+  return auxilios.map((auxilio) => {
+    const driverId = auxilio.driver?.id;
+    if (!driverId) return auxilio;
+    const loc = locByDriver[driverId];
+    if (!loc || loc.lat == null || loc.lng == null) return auxilio;
+    return { ...auxilio, driverLocation: loc };
+  });
+};
+
 /** GET /api/admin/auxilios */
 export const listAdminAuxilios = async (req, res) => {
   try {
@@ -88,14 +132,16 @@ export const listAdminAuxilios = async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    const auxilios = (data || [])
-      .map(mapRideToAdminAuxilio)
-      .sort((a, b) => {
-        const pa = a.priorityOverride ?? a.priority;
-        const pb = b.priorityOverride ?? b.priority;
-        if (pa !== pb) return pa - pb;
-        return new Date(b.created_at) - new Date(a.created_at);
-      });
+    const auxilios = await attachDriverLocations(
+      (data || [])
+        .map(mapRideToAdminAuxilio)
+        .sort((a, b) => {
+          const pa = a.priorityOverride ?? a.priority;
+          const pb = b.priorityOverride ?? b.priority;
+          if (pa !== pb) return pa - pb;
+          return new Date(b.created_at) - new Date(a.created_at);
+        })
+    );
 
     const active = auxilios.filter((a) =>
       ['pending', 'accepted', 'arrived', 'in_progress'].includes(a.status)
@@ -138,7 +184,8 @@ export const getAdminAuxilio = async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json({ success: true, auxilio: mapRideToAdminAuxilio(data) });
+    const [auxilio] = await attachDriverLocations([mapRideToAdminAuxilio(data)]);
+    res.json({ success: true, auxilio });
   } catch (error) {
     res.status(404).json({ success: false, message: 'Auxilio no encontrado' });
   }
@@ -230,11 +277,14 @@ export const assignAdminAuxilio = async (req, res) => {
       etaMinutes: resolvedEta,
     });
 
+    if (vehicleId) {
+      notes = mergeRideNotes(notes, { patrolVehicleId: vehicleId });
+    }
+
     const { data: ride, error } = await supabaseAdmin
       .from('rides')
       .update({
         driver_id: driverId,
-        vehicle_id: vehicleId || null,
         status: 'accepted',
         accepted_at: new Date().toISOString(),
         notes,
@@ -247,7 +297,10 @@ export const assignAdminAuxilio = async (req, res) => {
       `)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('assignAdminAuxilio update error:', error);
+      throw error;
+    }
 
     const meta = parseRideNotes(ride.notes);
     emitToUser(ride.user_id, 'auxilio:status_changed', {
