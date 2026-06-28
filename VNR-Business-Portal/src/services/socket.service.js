@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../constants/config';
 
 // Extraer base URL sin /api
-const SOCKET_URL = (CONFIG.API_URL || 'https://vnr-api.whapy.com/api').replace(/\/api\/?$/, '');
+const SOCKET_URL = (CONFIG.API_URL || 'https://river-backend-idio.onrender.com/api').replace(/\/api\/?$/, '');
 
 let socket = null;
 let reconnectAttempts = 0;

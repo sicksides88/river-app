@@ -11,20 +11,22 @@ import { COLORS } from '../../constants/theme';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: null };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || String(error),
+    };
   }
 
   componentDidCatch(error, info) {
-    // Log para diagnóstico (visible en logs de Expo / consola).
-    console.error('🛑 ErrorBoundary atrapó un error:', error, info?.componentStack);
+    console.error('🛑 ErrorBoundary atrapó un error:', error?.message || error, info?.componentStack);
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false });
+    this.setState({ hasError: false, errorMessage: null });
   };
 
   render() {
@@ -37,6 +39,9 @@ class ErrorBoundary extends React.Component {
             Ocurrió un error inesperado. Probá de nuevo; si sigue pasando,
             cerrá y volvé a abrir la app.
           </Text>
+          {this.state.errorMessage ? (
+            <Text style={styles.errorDetail}>{this.state.errorMessage}</Text>
+          ) : null}
           <TouchableOpacity style={styles.button} onPress={this.handleRetry} activeOpacity={0.85}>
             <Text style={styles.buttonText}>Reintentar</Text>
           </TouchableOpacity>
@@ -67,6 +72,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 21,
+  },
+  errorDetail: {
+    fontSize: 13,
+    color: COLORS.errorText,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+    paddingHorizontal: 8,
   },
   button: {
     marginTop: 28,

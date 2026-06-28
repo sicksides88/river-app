@@ -15,14 +15,16 @@ const router = Router();
 router.get('/my-shift', protect, driverOnly, getMyShift);
 router.get('/my-shifts', protect, driverOnly, getMyShifts);
 
+const riverCrm = authorize('admin', 'operator', 'auditor');
+const riverWrite = authorize('admin', 'operator');
+
 const adminRouter = Router();
 adminRouter.use(protect);
-adminRouter.use(authorize('admin', 'operator'));
-adminRouter.get('/patrol-bases', listPatrolBases);
-adminRouter.post('/patrol-bases', createPatrolBase);
-adminRouter.get('/patrol-shifts', listPatrolShifts);
-adminRouter.post('/patrol-shifts', createPatrolShift);
-adminRouter.put('/patrol-shifts/:id', updatePatrolShift);
+adminRouter.get('/patrol-bases', riverCrm, listPatrolBases);
+adminRouter.get('/patrol-shifts', riverCrm, listPatrolShifts);
+adminRouter.post('/patrol-bases', riverWrite, createPatrolBase);
+adminRouter.post('/patrol-shifts', riverWrite, createPatrolShift);
+adminRouter.put('/patrol-shifts/:id', riverWrite, updatePatrolShift);
 
 export { adminRouter as patrolAdminRoutes };
 export default router;

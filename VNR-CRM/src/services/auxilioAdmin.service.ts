@@ -40,6 +40,36 @@ export interface PatrolOnDuty {
   location?: { lat?: number; lng?: number; updatedAt?: string };
 }
 
+export interface NavigatorSearchResult {
+  id: string;
+  nombre?: string;
+  apellido?: string;
+  email?: string;
+  telefono_numero?: string;
+}
+
+export interface NavigatorVessel {
+  id: string;
+  name?: string;
+  registration?: string;
+  type?: string;
+  length_m?: number;
+}
+
+export interface PatronSearchResult {
+  id: string;
+  nombre?: string;
+  apellido?: string;
+  email?: string;
+  telefono_numero?: string;
+}
+
+const formatPersonLabel = (person: { nombre?: string; apellido?: string; email?: string }) =>
+  `${person.nombre || ''} ${person.apellido || ''}`.trim() || person.email || 'Sin nombre';
+
+const formatPersonSublabel = (person: { email?: string; telefono_numero?: string }) =>
+  [person.email, person.telefono_numero].filter(Boolean).join(' · ');
+
 export const auxilioAdminService = {
   async listAuxilios(status = 'active') {
     const { data } = await api.get('/admin/auxilios', { params: { status } });
@@ -118,6 +148,39 @@ export const auxilioAdminService = {
   }) {
     const { data } = await api.post('/admin/patrol-bases', payload);
     return data;
+  },
+
+  async searchUsers(q: string) {
+    const { data } = await api.get('/admin/users/search', { params: { q } });
+    return data as { success: boolean; users: NavigatorSearchResult[] };
+  },
+
+  async searchPatrons(q: string) {
+    const { data } = await api.get('/admin/patrons/search', { params: { q } });
+    return data as { success: boolean; patrons: PatronSearchResult[] };
+  },
+
+  async searchUsersAsOptions(q: string) {
+    const res = await this.searchUsers(q);
+    return (res.users || []).map((user) => ({
+      id: user.id,
+      label: formatPersonLabel(user),
+      sublabel: formatPersonSublabel(user),
+    }));
+  },
+
+  async searchPatronsAsOptions(q: string) {
+    const res = await this.searchPatrons(q);
+    return (res.patrons || []).map((patron) => ({
+      id: patron.id,
+      label: formatPersonLabel(patron),
+      sublabel: formatPersonSublabel(patron),
+    }));
+  },
+
+  async getUserVessels(userId: string) {
+    const { data } = await api.get(`/admin/users/${userId}/vessels`);
+    return data as { success: boolean; vessels: NavigatorVessel[] };
   },
 };
 

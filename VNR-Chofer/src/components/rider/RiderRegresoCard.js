@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants/theme';
-import { RiderPrimaryButton } from './RiderPrimaryButton';
+import RiderPrimaryButton from './RiderPrimaryButton';
 
 const RiderRegresoCard = ({
   baseName,

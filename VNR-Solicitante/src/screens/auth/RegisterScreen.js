@@ -169,19 +169,16 @@ const RegisterScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo VNR con halo azul */}
+          {/* Logo River Service */}
           <View style={styles.logoContainer}>
             <View style={styles.logoWrapper}>
               <Image
-                source={require('../../../assets/logo-vnr-transparent.png')}
+                source={require('../../../assets/logo-river.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
             </View>
             <Text style={styles.logoTagline}>App para Usuarios</Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>USUARIO</Text>
-            </View>
           </View>
 
           {/* Title */}
@@ -372,26 +369,26 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.lg,
   },
   logoWrapper: {
-    width: 220,
-    height: 220,
+    width: 300,
+    height: 260,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoGlow: {
     position: 'absolute',
-    width: 220,
-    height: 220,
+    width: 300,
+    height: 260,
   },
   logo: {
-    width: 140,
-    height: 140,
+    width: 260,
+    height: 260,
   },
   logoTagline: {
     fontSize: SIZES.body,
     color: COLORS.authTextSecondary,
     fontWeight: '500',
     letterSpacing: 1,
-    marginTop: -SIZES.sm,
+    marginTop: -SIZES.lg,
   },
   roleBadge: {
     marginTop: 10,

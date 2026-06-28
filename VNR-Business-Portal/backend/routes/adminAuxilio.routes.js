@@ -11,14 +11,16 @@ import {
 
 const router = Router();
 
-router.use(protect);
-router.use(authorize('admin', 'operator'));
+const riverCrm = authorize('admin', 'operator', 'auditor');
+const riverWrite = authorize('admin', 'operator');
 
-router.get('/auxilios', listAdminAuxilios);
-router.get('/auxilios/:id', getAdminAuxilio);
-router.post('/auxilios', createAdminAuxilio);
-router.put('/auxilios/:id/assign', assignAdminAuxilio);
-router.put('/auxilios/:id/priority', setAdminAuxilioPriority);
-router.get('/patrols/on-duty', listPatrolsOnDuty);
+router.use(protect);
+
+router.get('/auxilios', riverCrm, listAdminAuxilios);
+router.get('/auxilios/:id', riverCrm, getAdminAuxilio);
+router.get('/patrols/on-duty', riverCrm, listPatrolsOnDuty);
+router.post('/auxilios', riverWrite, createAdminAuxilio);
+router.put('/auxilios/:id/assign', riverWrite, assignAdminAuxilio);
+router.put('/auxilios/:id/priority', riverWrite, setAdminAuxilioPriority);
 
 export default router;

@@ -44,14 +44,16 @@ const AuxilioLiveMap = ({ pickup, driverLocation, searching, style }) => {
   return (
     <View style={[styles.wrap, style]}>
       <MapView
-        key={`${lat}-${lng}`}
+        key={`${lat}-${lng}-${searching ? 'search' : 'track'}`}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
         initialRegion={region}
-        scrollEnabled
-        zoomEnabled
+        region={searching ? region : undefined}
+        scrollEnabled={!searching}
+        zoomEnabled={!searching}
         rotateEnabled={false}
         pitchEnabled={false}
+        moveOnMarkerPress={false}
       >
         <Marker
           coordinate={{ latitude: Number(lat), longitude: Number(lng) }}
@@ -70,7 +72,11 @@ const AuxilioLiveMap = ({ pickup, driverLocation, searching, style }) => {
         ) : null}
       </MapView>
       {searching ? (
-        <AuxilioSearchingRadar addressLabel={addressLabel} coordsLabel={coordsLabel} />
+        <AuxilioSearchingRadar
+          addressLabel={addressLabel}
+          coordsLabel={coordsLabel}
+          mapOverlay
+        />
       ) : null}
     </View>
   );

@@ -39,7 +39,7 @@ export default {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#ffffff"
+        backgroundColor: "#0B1220"
       },
       edgeToEdgeEnabled: true,
       package: "com.vnr.chofer",

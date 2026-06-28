@@ -4,3 +4,7 @@ export { default as DespachoAuxilios } from './DespachoAuxilios';
 export { default as TurnosGuardias } from './TurnosGuardias';
 export { default as AltaAuxilioTelefonico } from './AltaAuxilioTelefonico';
 export { default as DetalleAuxilio } from './DetalleAuxilio';
+export { default as GestionUsuarios } from './GestionUsuarios';
+export { default as InformesRiver } from './InformesRiver';
+export { default as GestionRoles } from './GestionRoles';
+export { default as GestionEmbarcaciones } from './GestionEmbarcaciones';

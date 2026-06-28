@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES } from '../constants/theme';
 import RiderHomeStack from './RiderHomeStack';
 import RiderServicioStack from './RiderServicioStack';
@@ -9,22 +10,27 @@ import RiderProfileStack from './RiderProfileStack';
 
 const Tab = createBottomTabNavigator();
 
-const RiderTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={{
-      headerShown: false,
-      tabBarActiveTintColor: COLORS.riderBlue,
-      tabBarInactiveTintColor: COLORS.riderTabInactive,
-      tabBarStyle: {
-        backgroundColor: COLORS.riderTabBar,
-        borderTopColor: COLORS.borderDark,
-        borderTopWidth: 1,
-        paddingTop: SIZES.xs,
-        height: SIZES.tabBarHeight,
-      },
-      tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 4 },
-    }}
-  >
+const RiderTabNavigator = () => {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.riderBlue,
+        tabBarInactiveTintColor: COLORS.riderTabInactive,
+        // Sin height fijo: con edge-to-edge en Android el inset inferior lo
+        // calcula el safe-area (botones/gestos del sistema).
+        tabBarStyle: {
+          backgroundColor: COLORS.riderTabBar,
+          borderTopColor: COLORS.borderDark,
+          borderTopWidth: 1,
+          paddingTop: SIZES.xs,
+          paddingBottom: Math.max(insets.bottom, SIZES.xs),
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 4 },
+      }}
+    >
     <Tab.Screen
       name="RiderGuardiaTab"
       component={RiderHomeStack}
@@ -65,7 +71,8 @@ const RiderTabNavigator = () => (
         ),
       }}
     />
-  </Tab.Navigator>
-);
+    </Tab.Navigator>
+  );
+};
 
 export default RiderTabNavigator;

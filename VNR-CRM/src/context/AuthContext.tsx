@@ -10,6 +10,15 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /** Acceso al CRM (admin, operator o auditor) */
+  isCrmUser: boolean;
+  /** Solo lectura (auditor) */
+  isReadOnly: boolean;
+  /** Puede crear/editar operaciones */
+  canWrite: boolean;
+  /** Super Admin */
+  isSuperAdmin: boolean;
+  /** @deprecated usar isCrmUser */
   isAdmin: boolean;
 }
 
@@ -131,9 +140,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (profileError) throw profileError;
 
-        if (profileData?.role !== 'admin' && profileData?.role !== 'operator') {
+        const allowedRoles = ['admin', 'operator', 'auditor'];
+        if (!profileData?.role || !allowedRoles.includes(profileData.role)) {
           await supabase.auth.signOut();
-          return { error: new Error('Acceso denegado. Solo administradores u operadores pueden acceder al CRM.') };
+          return { error: new Error('Acceso denegado. Solo personal autorizado del CRM puede ingresar.') };
         }
       }
 
@@ -151,7 +161,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setSession(null);
   };
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'operator';
+  const role = profile?.role;
+  const isCrmUser = role === 'admin' || role === 'operator' || role === 'auditor';
+  const isReadOnly = role === 'auditor';
+  const canWrite = role === 'admin' || role === 'operator';
+  const isSuperAdmin = role === 'admin';
+  const isAdmin = isCrmUser;
 
   const value = {
     user,
@@ -160,6 +175,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     signIn,
     signOut,
+    isCrmUser,
+    isReadOnly,
+    canWrite,
+    isSuperAdmin,
     isAdmin,
   };
 

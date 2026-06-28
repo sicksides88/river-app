@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TextInput } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import {
   RiderScreenShell,
@@ -9,8 +10,9 @@ import {
 } from '../../components/rider';
 import { SolicitanteInfoBlock, VesselInfoBlock } from '../../components/riverservice';
 import { auxilioService, driverService } from '../../services';
-import { COLORS, SIZES, EMERGENCY_TYPES } from '../../constants/theme';
+import { COLORS, SIZES, EMERGENCY_TYPES, RIDER_MAP_STYLE } from '../../constants/theme';
 import { isSimulationAuxilio, advanceSimulationStatus } from '../../constants/demoAuxilio';
+import { extractPickupCoordinate, toMapRegion } from '../../utils/mapCoordinates';
 
 const ETA_OPTIONS = ['15', '20', '25', '30', '45'];
 
@@ -73,10 +75,43 @@ const AcceptAuxilioScreen = ({ navigation, route }) => {
 
   const address = auxilio?.pickup?.address || 'Ubicación del auxilio';
 
+  const pickupCoord = useMemo(
+    () => extractPickupCoordinate(auxilio?.pickup, null),
+    [auxilio?.pickup]
+  );
+
+  const mapRegion = useMemo(
+    () =>
+      pickupCoord
+        ? toMapRegion(pickupCoord.latitude, pickupCoord.longitude, {
+            latitudeDelta: 0.04,
+            longitudeDelta: 0.04,
+          })
+        : null,
+    [pickupCoord]
+  );
+
   return (
     <RiderScreenShell title="Aceptar auxilio" onBack={() => navigation.goBack()}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <RiderEmergencyBanner label={getEmergencyLabel(auxilio?.emergencyType)} />
+
+        {mapRegion ? (
+          <View style={styles.mapWrap}>
+            <MapView
+              style={styles.map}
+              provider={PROVIDER_GOOGLE}
+              customMapStyle={RIDER_MAP_STYLE}
+              initialRegion={mapRegion}
+              scrollEnabled
+              zoomEnabled
+              rotateEnabled={false}
+              pitchEnabled={false}
+            >
+              <Marker coordinate={pickupCoord} pinColor={COLORS.sos} />
+            </MapView>
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <RiderSectionLabel>EMBARCACIÓN A AUXILIAR</RiderSectionLabel>
@@ -123,6 +158,15 @@ const AcceptAuxilioScreen = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   scroll: { padding: SIZES.screenPadding, paddingBottom: SIZES.xxl },
+  mapWrap: {
+    height: 200,
+    borderRadius: SIZES.radiusLg,
+    overflow: 'hidden',
+    marginBottom: SIZES.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  map: { flex: 1 },
   card: {
     backgroundColor: COLORS.riderCard,
     borderRadius: SIZES.radiusLg,

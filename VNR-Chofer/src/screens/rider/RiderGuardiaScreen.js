@@ -30,7 +30,7 @@ import {
 } from '../../utils/riderDisplay';
 import { pickActiveDriverAuxilio } from '../../utils/riderActiveAuxilio';
 import { pickActiveAuxilioBoat, getBoatDisplayName } from '../../utils/riderBoat';
-import { isSimulationAuxilio } from '../../constants/demoAuxilio';
+import { isSimulationAuxilio, createDemoAuxilio } from '../../constants/demoAuxilio';
 import { RiderPrimaryButton } from '../../components/rider';
 import { scheduleService } from '../../services';
 import {

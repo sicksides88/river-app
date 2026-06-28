@@ -8,7 +8,7 @@
 -- TABLA: driver_mp_accounts
 -- =====================================================
 CREATE TABLE IF NOT EXISTS driver_mp_accounts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   driver_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE NOT NULL,
 
   -- Datos de MercadoPago
@@ -49,25 +49,38 @@ ON driver_mp_accounts(token_expires_at)
 WHERE status = 'active';
 
 -- =====================================================
--- ALTERACIONES: payment_splits (agregar campos MP)
+-- ALTERACIONES: payment_splits (solo si la tabla ya existe)
+-- Requiere ejecutar payment_split_schema.sql antes, si usás split de pagos.
 -- =====================================================
-ALTER TABLE payment_splits
-ADD COLUMN IF NOT EXISTS mp_payment_id VARCHAR(100);
+DO $$
+BEGIN
+  IF to_regclass('public.payment_splits') IS NOT NULL THEN
+    ALTER TABLE payment_splits
+    ADD COLUMN IF NOT EXISTS mp_payment_id VARCHAR(100);
 
-ALTER TABLE payment_splits
-ADD COLUMN IF NOT EXISTS mp_application_fee DECIMAL(12,2);
+    ALTER TABLE payment_splits
+    ADD COLUMN IF NOT EXISTS mp_application_fee DECIMAL(12,2);
 
-ALTER TABLE payment_splits
-ADD COLUMN IF NOT EXISTS mp_collector_id VARCHAR(50);
+    ALTER TABLE payment_splits
+    ADD COLUMN IF NOT EXISTS mp_collector_id VARCHAR(50);
 
-ALTER TABLE payment_splits
-ADD COLUMN IF NOT EXISTS payment_type VARCHAR(20) DEFAULT 'platform'
-CHECK (payment_type IN ('platform', 'split'));
+    ALTER TABLE payment_splits
+    ADD COLUMN IF NOT EXISTS payment_type VARCHAR(20) DEFAULT 'platform';
 
--- Índice para pagos con split
-CREATE INDEX IF NOT EXISTS idx_splits_mp_payment
-ON payment_splits(mp_payment_id)
-WHERE mp_payment_id IS NOT NULL;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'payment_splits_payment_type_check'
+    ) THEN
+      ALTER TABLE payment_splits
+      ADD CONSTRAINT payment_splits_payment_type_check
+      CHECK (payment_type IN ('platform', 'split'));
+    END IF;
+
+    CREATE INDEX IF NOT EXISTS idx_splits_mp_payment
+    ON payment_splits(mp_payment_id)
+    WHERE mp_payment_id IS NOT NULL;
+  END IF;
+END $$;
 
 -- =====================================================
 -- TRIGGER: Actualizar updated_at
@@ -139,7 +152,13 @@ COMMENT ON COLUMN driver_mp_accounts.mp_user_id IS 'ID del usuario en MercadoPag
 COMMENT ON COLUMN driver_mp_accounts.access_token IS 'Token de acceso para operaciones con MP';
 COMMENT ON COLUMN driver_mp_accounts.refresh_token IS 'Token para renovar el access_token';
 COMMENT ON COLUMN driver_mp_accounts.status IS 'Estado de la conexión: active, disconnected, expired, error';
-COMMENT ON COLUMN payment_splits.mp_payment_id IS 'ID del pago en MercadoPago (para split payments)';
-COMMENT ON COLUMN payment_splits.mp_application_fee IS 'Comisión cobrada a través de application_fee de MP';
-COMMENT ON COLUMN payment_splits.mp_collector_id IS 'ID del collector (driver) en MercadoPago';
-COMMENT ON COLUMN payment_splits.payment_type IS 'Tipo de pago: platform (normal) o split (directo a driver)';
+
+DO $$
+BEGIN
+  IF to_regclass('public.payment_splits') IS NOT NULL THEN
+    COMMENT ON COLUMN payment_splits.mp_payment_id IS 'ID del pago en MercadoPago (para split payments)';
+    COMMENT ON COLUMN payment_splits.mp_application_fee IS 'Comisión cobrada a través de application_fee de MP';
+    COMMENT ON COLUMN payment_splits.mp_collector_id IS 'ID del collector (driver) en MercadoPago';
+    COMMENT ON COLUMN payment_splits.payment_type IS 'Tipo de pago: platform (normal) o split (directo a driver)';
+  END IF;
+END $$;

@@ -56,11 +56,12 @@ const AuxilioSearchingRadar = ({
   message = 'Buscando patrón disponible...',
   addressLabel,
   coordsLabel,
+  mapOverlay = false,
 }) => (
   <View style={styles.wrap} pointerEvents="none">
     <View style={styles.dim} />
 
-    <View style={styles.content}>
+    <View style={[styles.radarAnchor, mapOverlay && styles.radarAnchorOnMap]}>
       <View style={styles.radarArea}>
         {Array.from({ length: PULSE_COUNT }).map((_, index) => (
           <PulseRing key={index} delay={index * 600} thick={index % 2 === 0} />
@@ -69,7 +70,9 @@ const AuxilioSearchingRadar = ({
           <View style={styles.coreInner} />
         </View>
       </View>
+    </View>
 
+    <View style={[styles.messageBlock, mapOverlay && styles.messageBlockOnMap]}>
       <Text style={styles.message}>{message}</Text>
       {addressLabel ? (
         <Text style={styles.locationLine} numberOfLines={2}>
@@ -92,9 +95,31 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(8, 12, 20, 0.32)',
   },
-  content: {
+  radarAnchor: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: RADAR_SIZE,
+    height: RADAR_SIZE,
+    marginLeft: -RADAR_SIZE / 2,
+    marginTop: -RADAR_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarAnchorOnMap: {
+    // El pin rojo ancla la coordenada en la punta; el cuerpo queda un poco arriba del centro.
+    marginTop: -(RADAR_SIZE / 2 + 14),
+  },
+  messageBlock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: SIZES.lg,
     alignItems: 'center',
     paddingHorizontal: SIZES.lg,
+  },
+  messageBlockOnMap: {
+    bottom: SIZES.sm,
   },
   radarArea: {
     width: RADAR_SIZE,
@@ -134,7 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
   },
   message: {
-    marginTop: SIZES.md,
+    marginTop: 0,
     color: COLORS.text,
     fontSize: SIZES.caption,
     fontWeight: '700',

@@ -1,6 +1,6 @@
 // Types basados en el esquema de base de datos VNR (tables.md)
 
-export type UserRole = 'user' | 'driver' | 'admin' | 'business';
+export type UserRole = 'user' | 'driver' | 'admin' | 'business' | 'operator' | 'auditor';
 export type DriverStatus = 'pending_documents' | 'pending_review' | 'active' | 'suspended';
 export type DriverType = 'particular' | 'profesional';
 export type TrustLevel = 'bronce' | 'plata' | 'oro' | 'platino';

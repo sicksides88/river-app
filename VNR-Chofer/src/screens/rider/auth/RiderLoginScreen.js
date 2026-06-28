@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { Input } from '../../../components/common';
 import { RiderPrimaryButton } from '../../../components/rider';
-import { CONFIG } from '../../../constants/config';
 import { COLORS, SIZES } from '../../../constants/theme';
 
 const RiderLoginScreen = ({ navigation }) => {
@@ -37,10 +36,11 @@ const RiderLoginScreen = ({ navigation }) => {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.logoWrap}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoIcon}>⚓</Text>
-            </View>
-            <Text style={styles.appName}>{CONFIG.APP_NAME}</Text>
+            <Image
+              source={require('../../../../assets/logo-river.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.tagline}>Patrón de auxilio náutico</Text>
           </View>
 
@@ -81,20 +81,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flexGrow: 1, padding: SIZES.screenPadding, paddingTop: SIZES.xxl },
   logoWrap: { alignItems: 'center', marginBottom: SIZES.xxl },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: COLORS.riderCard,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.md,
-    borderWidth: 1,
-    borderColor: COLORS.riderBlue,
-  },
-  logoIcon: { fontSize: 32 },
-  appName: { color: COLORS.text, fontSize: SIZES.h3, fontWeight: '700' },
-  tagline: { color: COLORS.textSecondary, marginTop: 4 },
+  logo: { width: 260, height: 260, marginBottom: SIZES.xs },
+  tagline: { color: COLORS.textSecondary, marginTop: -SIZES.md },
   title: { color: COLORS.text, fontSize: SIZES.h1, fontWeight: '700', marginBottom: SIZES.sm },
   subtitle: { color: COLORS.textSecondary, marginBottom: SIZES.xl, lineHeight: 22 },
   input: { marginBottom: SIZES.md },

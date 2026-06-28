@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const ANON = process.env.SUPABASE_ANON_KEY;
-const BACKEND = process.env.BACKEND_URL || 'https://vnr-api.whapy.com/api';
+const BACKEND = process.env.BACKEND_URL || 'https://river-backend-idio.onrender.com/api';
 const PASS = 'Test1234!e2e';
 const stamp = Date.now();
 const users = [];

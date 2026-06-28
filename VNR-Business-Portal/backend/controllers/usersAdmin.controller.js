@@ -81,16 +81,139 @@ export const getUserById = async (req, res) => {
   }
 };
 
+// @desc    Crear navegante o patrón desde CRM
+// @route   POST /api/admin/users
+// @access  Private (admin, operator)
+export const createAdminUser = async (req, res) => {
+  try {
+    const {
+      email,
+      password,
+      nombre,
+      apellido,
+      telefono_numero,
+      telefono_codigo_pais,
+      direccion,
+      role = 'user',
+      driver_status,
+      insurance_company,
+      policy_number,
+    } = req.body;
+
+    if (!email || !password || !nombre || !apellido) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, contraseña, nombre y apellido son obligatorios',
+      });
+    }
+
+    if (!['user', 'driver'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se pueden crear navegantes (user) o patrones (driver)',
+      });
+    }
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { nombre, apellido },
+    });
+
+    if (authError) {
+      const msg = authError.message?.includes('already')
+        ? 'Este email ya está registrado'
+        : authError.message;
+      return res.status(400).json({ success: false, message: msg });
+    }
+
+    const profileUpdate = {
+      nombre,
+      apellido,
+      email,
+      telefono_numero: telefono_numero || '',
+      telefono_codigo_pais: telefono_codigo_pais || '+54',
+      direccion: direccion || '',
+      role,
+      insurance_company: insurance_company || null,
+      policy_number: policy_number || null,
+    };
+
+    if (role === 'driver') {
+      profileUpdate.is_driver = true;
+      profileUpdate.driver_status = driver_status || 'active';
+      profileUpdate.driver_services = ['auxilio'];
+      profileUpdate.driver_type = 'profesional';
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update(profileUpdate)
+      .eq('id', authData.user.id)
+      .select()
+      .single();
+
+    if (profileError) throw profileError;
+
+    res.status(201).json({
+      success: true,
+      message: role === 'driver' ? 'Patrón creado' : 'Navegante creado',
+      profile,
+    });
+  } catch (error) {
+    console.error('Error creando usuario:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error en el servidor',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Actualizar usuario
 // @route   PUT /api/admin/users/:id
-// @access  Private (admin)
+// @access  Private (admin, operator)
 export const updateUser = async (req, res) => {
   try {
-    const updates = req.body;
+    const updates = { ...req.body };
 
-    // No permitir cambios peligrosos sin validar
     delete updates.id;
     delete updates.created_at;
+    delete updates.email; // email change via auth — omit for safety
+
+    if (req.user?.role === 'operator') {
+      delete updates.role;
+    }
+
+    if (updates.role && !['user', 'driver'].includes(updates.role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede asignar ese rol desde el CRM River',
+      });
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', req.params.id)
+      .single();
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    if (['admin', 'operator'].includes(existing.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'No se puede modificar un usuario administrador',
+      });
+    }
+
+    if (updates.role === 'driver' || existing.role === 'driver') {
+      updates.is_driver = true;
+      if (!updates.driver_services) updates.driver_services = ['auxilio'];
+    }
 
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
@@ -103,14 +226,14 @@ export const updateUser = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Usuario actualizado",
+      message: 'Usuario actualizado',
       profile,
     });
   } catch (error) {
-    console.error("Error actualizando usuario:", error);
+    console.error('Error actualizando usuario:', error);
     res.status(500).json({
       success: false,
-      message: "Error en el servidor",
+      message: 'Error en el servidor',
       error: error.message,
     });
   }
@@ -193,6 +316,419 @@ export const deleteUser = async (req, res) => {
       message: "Error en el servidor",
       error: error.message,
     });
+  }
+};
+
+// @desc    Búsqueda rápida de navegantes (alta telefónica CRM)
+// @route   GET /api/admin/users/search?q=
+// @access  Private (admin, operator)
+const sanitizeSearchTerm = (term) => String(term).trim().replace(/[%_,]/g, ' ').replace(/\s+/g, ' ');
+
+export const searchUsersForAlta = async (req, res) => {
+  try {
+    const { q = '' } = req.query;
+    const term = sanitizeSearchTerm(q);
+
+    if (term.length < 2) {
+      return res.json({ success: true, users: [] });
+    }
+
+    const pattern = `%${term}%`;
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id, nombre, apellido, email, telefono_numero, role')
+      .or(
+        `nombre.ilike.${pattern},apellido.ilike.${pattern},email.ilike.${pattern},telefono_numero.ilike.${pattern}`
+      )
+      .not('role', 'in', '("driver","admin","operator","auditor")')
+      .order('nombre', { ascending: true })
+      .limit(20);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      users: data || [],
+    });
+  } catch (error) {
+    console.error('Error buscando usuarios:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error en el servidor',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Búsqueda de patrones activos (turnos CRM)
+// @route   GET /api/admin/patrons/search?q=
+// @access  Private (admin, operator)
+export const searchPatronsForShift = async (req, res) => {
+  try {
+    const { q = '' } = req.query;
+    const term = sanitizeSearchTerm(q);
+
+    let query = supabaseAdmin
+      .from('profiles')
+      .select('id, nombre, apellido, email, telefono_numero, driver_status')
+      .eq('role', 'driver')
+      .eq('driver_status', 'active')
+      .order('nombre', { ascending: true })
+      .limit(30);
+
+    if (term.length >= 1) {
+      const pattern = `%${term}%`;
+      query = query.or(
+        `nombre.ilike.${pattern},apellido.ilike.${pattern},email.ilike.${pattern},telefono_numero.ilike.${pattern}`
+      );
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      patrons: data || [],
+    });
+  } catch (error) {
+    console.error('Error buscando patrones:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error en el servidor',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Embarcaciones de un navegante (CRM alta telefónica)
+// @route   GET /api/admin/users/:id/vessels
+// @access  Private (admin, operator)
+export const getUserVesselsForAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabaseAdmin
+      .from('vessels')
+      .select('id, name, registration, type, length_m, user_id')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      vessels: data || [],
+    });
+  } catch (error) {
+    console.error('Error listando embarcaciones:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error en el servidor',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Crear embarcación para navegante (CRM)
+// @route   POST /api/admin/users/:id/vessels
+export const createAdminVessel = async (req, res) => {
+  try {
+    const { id: userId } = req.params;
+    const { name, registration, type, length_m } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ success: false, message: 'Nombre de embarcación requerido' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('vessels')
+      .insert({
+        user_id: userId,
+        name: name.trim(),
+        registration: (registration || name).trim(),
+        type: type || null,
+        length_m: length_m || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ success: true, vessel: data });
+  } catch (error) {
+    console.error('Error creando embarcación:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Actualizar embarcación (CRM)
+// @route   PUT /api/admin/vessels/:id
+export const updateAdminVessel = async (req, res) => {
+  try {
+    const allowed = ['name', 'registration', 'type', 'length_m', 'beam_m'];
+    const payload = {};
+    allowed.forEach((k) => {
+      if (req.body[k] !== undefined) payload[k] = req.body[k];
+    });
+
+    const { data, error } = await supabaseAdmin
+      .from('vessels')
+      .update(payload)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, vessel: data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Eliminar embarcación (CRM)
+// @route   DELETE /api/admin/vessels/:id
+export const deleteAdminVessel = async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin.from('vessels').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true, message: 'Embarcación eliminada' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Importación masiva de navegantes (CSV → JSON rows)
+// @route   POST /api/admin/users/import
+export const importNavigatorsCSV = async (req, res) => {
+  try {
+    const { rows = [], defaultPassword = 'River2026!' } = req.body;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay filas para importar' });
+    }
+
+    const results = { created: 0, skipped: 0, errors: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const email = String(row.email || '').trim().toLowerCase();
+      const nombre = String(row.nombre || '').trim();
+      const apellido = String(row.apellido || '').trim();
+
+      if (!email || !nombre || !apellido) {
+        results.errors.push({ line: i + 1, message: 'Faltan email, nombre o apellido' });
+        results.skipped++;
+        continue;
+      }
+
+      const { data: existing } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existing) {
+        results.skipped++;
+        continue;
+      }
+
+      const password = row.password || defaultPassword;
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { nombre, apellido },
+      });
+
+      if (authError) {
+        results.errors.push({ line: i + 1, email, message: authError.message });
+        results.skipped++;
+        continue;
+      }
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          nombre,
+          apellido,
+          email,
+          role: 'user',
+          telefono_numero: row.telefono || row.telefono_numero || '',
+          direccion: row.direccion || '',
+          insurance_company: row.insurance_company || row.aseguradora || null,
+          policy_number: row.policy_number || row.poliza || null,
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        results.errors.push({ line: i + 1, email, message: profileError.message });
+        results.skipped++;
+        continue;
+      }
+
+      results.created++;
+    }
+
+    res.json({ success: true, ...results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Listar embarcaciones de auxilio (flota patrón)
+// @route   GET /api/admin/patrol-vessels
+export const listPatrolVessels = async (req, res) => {
+  try {
+    const { search, driverId } = req.query;
+
+    let query = supabaseAdmin
+      .from('driver_vehicles')
+      .select(`
+        *,
+        driver:driver_id (id, nombre, apellido, email, driver_status)
+      `)
+      .eq('vehicle_type', 'boat')
+      .order('created_at', { ascending: false });
+
+    if (driverId) query = query.eq('driver_id', driverId);
+    if (search) {
+      const p = `%${search}%`;
+      query = query.or(`brand.ilike.${p},model.ilike.${p},plate_number.ilike.${p}`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json({ success: true, vessels: data || [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Crear embarcación de auxilio para patrón
+// @route   POST /api/admin/drivers/:id/patrol-vessels
+export const createPatrolVessel = async (req, res) => {
+  try {
+    const { id: driverId } = req.params;
+    const { name, plate_number, capacity, color, model, brand } = req.body;
+
+    if (!name?.trim() && !plate_number?.trim()) {
+      return res.status(400).json({ success: false, message: 'Nombre o matrícula requeridos' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('driver_vehicles')
+      .insert({
+        driver_id: driverId,
+        vehicle_type: 'boat',
+        brand: brand || name || 'River',
+        model: model || name || 'Patrulla',
+        year: new Date().getFullYear(),
+        plate_number: plate_number || name,
+        capacity: capacity || 6,
+        color: color || null,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json({ success: true, vessel: data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updatePatrolVessel = async (req, res) => {
+  try {
+    const allowed = ['brand', 'model', 'plate_number', 'capacity', 'color', 'is_active', 'is_verified'];
+    const payload = {};
+    allowed.forEach((k) => {
+      if (req.body[k] !== undefined) payload[k] = req.body[k];
+    });
+
+    const { data, error } = await supabaseAdmin
+      .from('driver_vehicles')
+      .update(payload)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, vessel: data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deletePatrolVessel = async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin.from('driver_vehicles').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true, message: 'Embarcación de auxilio eliminada' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Personal CRM (roles operador / auditor)
+// @route   GET /api/admin/staff
+export const listCrmStaff = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id, nombre, apellido, email, role, created_at')
+      .in('role', ['admin', 'operator', 'auditor'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json({ success: true, staff: data || [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Crear operador o auditor CRM
+// @route   POST /api/admin/staff
+export const createCrmStaff = async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Solo Super Admin puede gestionar roles' });
+    }
+
+    const { email, password, nombre, apellido, role = 'operator' } = req.body;
+
+    if (!['operator', 'auditor'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Rol debe ser operator o auditor' });
+    }
+
+    if (!email || !password || !nombre || !apellido) {
+      return res.status(400).json({ success: false, message: 'Datos incompletos' });
+    }
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { nombre, apellido },
+    });
+
+    if (authError) {
+      return res.status(400).json({ success: false, message: authError.message });
+    }
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({ nombre, apellido, email, role })
+      .eq('id', authData.user.id)
+      .select()
+      .single();
+
+    if (profileError) throw profileError;
+
+    res.status(201).json({ success: true, profile });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

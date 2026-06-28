@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { RiderScreenShell, RiderPrimaryButton } from '../../components/rider';
+import { auxilioService } from '../../services';
 import { pickActiveDriverAuxilio } from '../../utils/riderActiveAuxilio';
 import { isSimulationAuxilio } from '../../constants/demoAuxilio';
 import { COLORS, SIZES } from '../../constants/theme';
@@ -15,7 +16,7 @@ const RiderServicioHubScreen = ({ navigation }) => {
     setLoading(true);
     try {
       const res = await auxilioService.getUserAuxilios({ role: 'driver' });
-      const active = pickActiveDriverAuxilio(res.auxilios || []);
+      const active = pickActiveDriverAuxilio(res?.auxilios || []);
       setActiveAuxilio(active);
       if (active) {
         navigation.replace('ServicioActivo', {
@@ -24,6 +25,9 @@ const RiderServicioHubScreen = ({ navigation }) => {
           simulation: isSimulationAuxilio(active),
         });
       }
+    } catch (e) {
+      console.error('RiderServicioHub: no se pudo cargar auxilios activos', e);
+      setActiveAuxilio(null);
     } finally {
       setLoading(false);
     }

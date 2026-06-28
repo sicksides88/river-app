@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Layout } from '../../components/layout';
 import { StatCard } from '../../components/common';
 import { useRealtimeAuxilios } from '../../hooks/useRealtimeAuxilios';
-import { Anchor, Clock, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { auxilioAdminService } from '../../services/auxilioAdmin.service';
+import { Anchor, Clock, AlertTriangle, CheckCircle, Loader2, Users } from 'lucide-react';
 
 const statusLabel: Record<string, string> = {
   pending: 'Pendiente',
@@ -16,6 +17,15 @@ const statusLabel: Record<string, string> = {
 
 const OperacionesDashboard: React.FC = () => {
   const { auxilios, stats, loading, error, refetch } = useRealtimeAuxilios('active');
+  const [patrolsOnDuty, setPatrolsOnDuty] = useState(0);
+
+  useEffect(() => {
+    auxilioAdminService.listPatrolsOnDuty().then((r) => setPatrolsOnDuty(r.patrols?.length || 0));
+    const t = setInterval(() => {
+      auxilioAdminService.listPatrolsOnDuty().then((r) => setPatrolsOnDuty(r.patrols?.length || 0));
+    }, 15000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <Layout title="River Service — Operaciones">
@@ -37,17 +47,18 @@ const OperacionesDashboard: React.FC = () => {
         <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
         <StatCard title="Activos" value={stats.active} icon={Anchor} color="blue" />
         <StatCard title="En cola" value={stats.pending} icon={Clock} color="yellow" />
         <StatCard title="En servicio" value={stats.inProgress} icon={AlertTriangle} color="purple" />
         <StatCard title="Completados hoy" value={stats.completedToday} icon={CheckCircle} color="green" />
+        <StatCard title="Patrones en guardia" value={patrolsOnDuty} icon={Users} color="blue" />
       </div>
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
           <h2 className="font-semibold text-gray-900">Auxilios activos</h2>
-          <Link to="/river/despacho" className="text-sm text-blue-600 hover:underline">
+          <Link to="/despacho" className="text-sm text-blue-600 hover:underline">
             Ver despacho →
           </Link>
         </div>
@@ -63,7 +74,7 @@ const OperacionesDashboard: React.FC = () => {
             {auxilios.map((a) => (
               <Link
                 key={a.id}
-                to={`/river/auxilios/${a.id}`}
+                to={`/auxilios/${a.id}`}
                 className="block px-6 py-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex justify-between items-start">

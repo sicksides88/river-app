@@ -38,22 +38,24 @@ Flujo completo navegante → patrón → CRM operador.
 - [ ] Confirmar **regreso / finalizar** → estado `finalizado`
 - [ ] GPS activo durante servicio (ubicación emitida vía socket)
 
-## 5. CRM — visibilidad operativa
+## 5. CRM River Service — visibilidad operativa
 
-- [ ] `/river` — dashboard muestra auxilio activo y KPIs
-- [ ] `/river/mapa` — patrón en guardia en mapa
-- [ ] `/river/auxilios/:id` — timeline (arribo, zarpado, regreso), fotos y firma
+- [ ] `/` — dashboard muestra auxilio activo y KPIs (polling ~15s)
+- [ ] `/mapa` — patrones en guardia y auxilios activos en mapa
+- [ ] `/auxilios/:id` — timeline (arribo, zarpado, regreso), fotos y firma (polling)
 
 ## 6. CRM — alta telefónica y asignación manual
 
-- [ ] `/river/alta` — crear auxilio con `userId` + coordenadas
-- [ ] Auxilio aparece en `/river/despacho` (cola pending)
-- [ ] Asignar patrón manual → navegante/patrón reciben actualización
+- [ ] `/alta` — buscar navegante por nombre/email/teléfono + embarcación + pin en mapa
+- [ ] Auxilio aparece en `/despacho` (cola pending)
+- [ ] Asignar patrón manual con ETA configurable → navegante/patrón reciben actualización
 
 ## 7. Turnos (opcional MVP)
 
-- [ ] `/river/turnos` — crear base y turno de guardia
+- [ ] `/turnos` — crear base operativa y turno de guardia
 - [ ] `GET /api/patrols/my-shift` responde para patrón con turno activo
+
+> Rutas legacy `/river/*` redirigen a las rutas raíz anteriores.
 
 ## Criterio de éxito (47.0)
 

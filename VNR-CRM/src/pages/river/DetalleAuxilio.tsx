@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../../components/layout';
 import { auxilioAdminService, AdminAuxilio } from '../../services/auxilioAdmin.service';
@@ -19,15 +19,26 @@ const DetalleAuxilio: React.FC = () => {
   const [auxilio, setAuxilio] = useState<AdminAuxilio | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    auxilioAdminService
-      .getAuxilio(id)
-      .then((r) => setAuxilio(r.auxilio))
-      .finally(() => setLoading(false));
+    try {
+      const r = await auxilioAdminService.getAuxilio(id);
+      setAuxilio(r.auxilio);
+    } catch {
+      setAuxilio(null);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  if (loading) {
+  useEffect(() => {
+    setLoading(true);
+    load();
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  if (loading && !auxilio) {
     return (
       <Layout title="Detalle auxilio">
         <div className="flex justify-center py-24">
@@ -41,7 +52,7 @@ const DetalleAuxilio: React.FC = () => {
     return (
       <Layout title="Detalle auxilio">
         <p className="text-gray-500">Auxilio no encontrado</p>
-        <Link to="/river" className="text-blue-600 text-sm mt-4 inline-block">
+        <Link to="/" className="text-blue-600 text-sm mt-4 inline-block">
           ← Volver
         </Link>
       </Layout>
@@ -52,7 +63,7 @@ const DetalleAuxilio: React.FC = () => {
 
   return (
     <Layout title="Detalle auxilio">
-      <Link to="/river" className="text-sm text-blue-600 hover:underline mb-4 inline-block">
+      <Link to="/" className="text-sm text-blue-600 hover:underline mb-4 inline-block">
         ← Dashboard
       </Link>
 

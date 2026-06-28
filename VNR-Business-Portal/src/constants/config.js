@@ -1,7 +1,7 @@
 import { API_URL, GOOGLE_MAPS_API_KEY } from '@env';
 
 export const CONFIG = {
-  API_URL: API_URL || 'https://vnr-api.whapy.com/api',
+  API_URL: API_URL || 'https://river-backend-idio.onrender.com/api',
   GOOGLE_MAPS_API_KEY: GOOGLE_MAPS_API_KEY || 'AIzaSyDVx2koEMBRSqFRRFn_YvDPcgEU53gPsbM',
 
   // Timeouts
