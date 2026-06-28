@@ -143,16 +143,29 @@ export const createAdminUser = async (req, res) => {
     if (role === 'driver') {
       profileUpdate.is_driver = true;
       profileUpdate.driver_status = driver_status || 'active';
+      profileUpdate.driver_type = 'auxilio';
       profileUpdate.driver_services = ['auxilio'];
-      profileUpdate.driver_type = 'profesional';
+      profileUpdate.selected_services = ['auxilio'];
+      profileUpdate.onboarding_completed = true;
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    let { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .update(profileUpdate)
       .eq('id', authData.user.id)
       .select()
-      .single();
+      .maybeSingle();
+
+    // Si el trigger de Supabase aún no creó el perfil, hacer upsert
+    if (profileError || !profile) {
+      const upsertResult = await supabaseAdmin
+        .from('profiles')
+        .upsert({ id: authData.user.id, ...profileUpdate })
+        .select()
+        .single();
+      profile = upsertResult.data;
+      profileError = upsertResult.error;
+    }
 
     if (profileError) throw profileError;
 
@@ -163,9 +176,14 @@ export const createAdminUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creando usuario:', error);
-    res.status(500).json({
+    const isConstraint =
+      error.message?.includes('profiles_driver_type_check') ||
+      error.message?.includes('violates check constraint');
+    res.status(isConstraint ? 400 : 500).json({
       success: false,
-      message: 'Error en el servidor',
+      message: isConstraint
+        ? 'Datos de patrón inválidos. Verificá el estado y tipo de conductor.'
+        : error.message || 'Error en el servidor',
       error: error.message,
     });
   }
@@ -213,6 +231,8 @@ export const updateUser = async (req, res) => {
     if (updates.role === 'driver' || existing.role === 'driver') {
       updates.is_driver = true;
       if (!updates.driver_services) updates.driver_services = ['auxilio'];
+      if (!updates.driver_type) updates.driver_type = 'auxilio';
+      if (!updates.selected_services) updates.selected_services = ['auxilio'];
     }
 
     const { data: profile, error } = await supabaseAdmin
@@ -498,6 +518,72 @@ export const deleteAdminVessel = async (req, res) => {
   }
 };
 
+// @desc    Exportar tabla de usuarios a Excel/CSV
+// @route   GET /api/admin/users/export
+export const exportUsersReport = async (req, res) => {
+  try {
+    const { search, role, driver_status, format = 'csv' } = req.query;
+
+    let query = supabaseAdmin.from('profiles').select('*');
+
+    if (role) query = query.eq('role', role);
+    if (driver_status) query = query.eq('driver_status', driver_status);
+    if (search) {
+      query = query.or(
+        `nombre.ilike.%${search}%,apellido.ilike.%${search}%,email.ilike.%${search}%`
+      );
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(5000);
+    if (error) throw error;
+
+    const isDrivers = role === 'driver';
+    const headers = isDrivers
+      ? ['nombre', 'apellido', 'email', 'telefono', 'direccion', 'estado_patron', 'fecha_alta']
+      : ['nombre', 'apellido', 'email', 'telefono', 'direccion', 'aseguradora', 'poliza', 'fecha_alta'];
+
+    const rows = (data || []).map((u) => {
+      if (isDrivers) {
+        return [
+          u.nombre,
+          u.apellido,
+          u.email,
+          u.telefono_numero || '',
+          u.direccion || '',
+          u.driver_status || '',
+          u.created_at || '',
+        ];
+      }
+      return [
+        u.nombre,
+        u.apellido,
+        u.email,
+        u.telefono_numero || '',
+        u.direccion || '',
+        u.insurance_company || '',
+        u.policy_number || '',
+        u.created_at || '',
+      ];
+    });
+
+    if (format === 'csv') {
+      const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const lines = [
+        headers.map(escape).join(';'),
+        ...rows.map((r) => r.map(escape).join(';')),
+      ];
+      const fileName = isDrivers ? 'patrones-river.csv' : 'navegantes-river.csv';
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      return res.send('\uFEFF' + lines.join('\r\n'));
+    }
+
+    res.json({ success: true, count: rows.length, users: data || [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Importación masiva de navegantes (CSV → JSON rows)
 // @route   POST /api/admin/users/import
 export const importNavigatorsCSV = async (req, res) => {
@@ -611,8 +697,10 @@ export const createPatrolVessel = async (req, res) => {
   try {
     const { id: driverId } = req.params;
     const { name, plate_number, capacity, color, model, brand } = req.body;
+    const vesselBrand = (brand || name || '').trim();
+    const vesselPlate = (plate_number || '').trim();
 
-    if (!name?.trim() && !plate_number?.trim()) {
+    if (!vesselBrand && !vesselPlate) {
       return res.status(400).json({ success: false, message: 'Nombre o matrícula requeridos' });
     }
 
@@ -621,10 +709,10 @@ export const createPatrolVessel = async (req, res) => {
       .insert({
         driver_id: driverId,
         vehicle_type: 'boat',
-        brand: brand || name || 'River',
-        model: model || name || 'Patrulla',
+        brand: vesselBrand || 'River',
+        model: model || name || vesselBrand || 'Patrulla',
         year: new Date().getFullYear(),
-        plate_number: plate_number || name,
+        plate_number: vesselPlate || vesselBrand,
         capacity: capacity || 6,
         color: color || null,
         is_active: true,
