@@ -1,4 +1,5 @@
 import api from './api';
+import { supabase } from './supabase';
 import type { NavigatorVessel } from './auxilioAdmin.service';
 
 export interface RiverUserProfile {
@@ -26,6 +27,7 @@ export interface PatrolVessel {
   capacity?: number;
   color?: string;
   is_active?: boolean;
+  specs?: { hull_type?: string; display_name?: string };
   driver?: { id: string; nombre: string; apellido: string; email?: string; driver_status?: string };
 }
 
@@ -45,13 +47,6 @@ export interface PaginatedUsers {
   page: number;
   limit: number;
   totalPages: number;
-}
-
-export interface ImportNavigatorsResult {
-  success: boolean;
-  created: number;
-  skipped: number;
-  errors: { line: number; email?: string; message: string }[];
 }
 
 export const riverUsersService = {
@@ -124,9 +119,23 @@ export const riverUsersService = {
     return data;
   },
 
-  async importNavigators(rows: Record<string, string>[], defaultPassword?: string) {
-    const { data } = await api.post('/admin/users/import', { rows, defaultPassword });
-    return data as ImportNavigatorsResult;
+  async downloadUsersExcel(params: { role: 'user' | 'driver'; search?: string }) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const base = import.meta.env.VITE_API_URL || 'https://river-backend-idio.onrender.com/api';
+    const qs = new URLSearchParams({ role: params.role, format: 'csv' });
+    if (params.search) qs.set('search', params.search);
+    const res = await fetch(`${base}/admin/users/export?${qs}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error('Error al exportar');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = params.role === 'user' ? 'navegantes-river.csv' : 'patrones-river.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   },
 
   async listPatrolVessels(params?: { search?: string; driverId?: string }) {
@@ -136,7 +145,15 @@ export const riverUsersService = {
 
   async createPatrolVessel(
     driverId: string,
-    payload: { name?: string; plate_number?: string; capacity?: number; color?: string; brand?: string; model?: string }
+    payload: {
+      name?: string;
+      brand?: string;
+      plate_number?: string;
+      capacity?: number;
+      color?: string;
+      model?: string;
+      type?: string;
+    }
   ) {
     const { data } = await api.post(`/admin/drivers/${driverId}/patrol-vessels`, payload);
     return data;

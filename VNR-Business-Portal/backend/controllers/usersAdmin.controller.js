@@ -1,5 +1,8 @@
 import { supabaseAdmin } from "../config/supabase.js";
 
+/** Mismos tipos que la app móvil (VNR-Solicitante vesselForm.js) */
+const VESSEL_TYPES = ['Motor', 'Vela', 'Jetsky', 'Remo'];
+
 // @desc    Listar usuarios (paginado)
 // @route   GET /api/admin/users
 // @access  Private (admin)
@@ -460,13 +463,20 @@ export const createAdminVessel = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nombre de embarcación requerido' });
     }
 
+    if (!type || !VESSEL_TYPES.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Seleccioná un tipo de embarcación: Motor, Vela, Jetsky o Remo',
+      });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('vessels')
       .insert({
         user_id: userId,
         name: name.trim(),
         registration: (registration || name).trim(),
-        type: type || null,
+        type,
         length_m: length_m || null,
       })
       .select()
@@ -696,9 +706,17 @@ export const listPatrolVessels = async (req, res) => {
 export const createPatrolVessel = async (req, res) => {
   try {
     const { id: driverId } = req.params;
-    const { name, plate_number, capacity, color, model, brand } = req.body;
+    const { name, plate_number, capacity, color, model, brand, type, hull_type } = req.body;
+    const vesselType = type || hull_type;
     const vesselBrand = (brand || name || '').trim();
     const vesselPlate = (plate_number || '').trim();
+
+    if (!vesselType || !VESSEL_TYPES.includes(vesselType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Seleccioná un tipo de embarcación: Motor, Vela, Jetsky o Remo',
+      });
+    }
 
     if (!vesselBrand && !vesselPlate) {
       return res.status(400).json({ success: false, message: 'Nombre o matrícula requeridos' });
@@ -710,12 +728,16 @@ export const createPatrolVessel = async (req, res) => {
         driver_id: driverId,
         vehicle_type: 'boat',
         brand: vesselBrand || 'River',
-        model: model || name || vesselBrand || 'Patrulla',
+        model: vesselType,
         year: new Date().getFullYear(),
         plate_number: vesselPlate || vesselBrand,
         capacity: capacity || 6,
         color: color || null,
         is_active: true,
+        specs: {
+          display_name: vesselBrand || name || vesselType,
+          hull_type: vesselType,
+        },
       })
       .select()
       .single();

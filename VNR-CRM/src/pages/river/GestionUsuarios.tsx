@@ -4,7 +4,9 @@ import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { riverUsersService, RiverUserProfile, PatrolVessel } from '../../services/riverUsers.service';
 import type { NavigatorVessel } from '../../services/auxilioAdmin.service';
-import { Loader2, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import { VesselTypePicker } from '../../components/common';
+import { getVesselTypeLabel, VesselTypeId } from '../../constants/vesselTypes';
+import { Loader2, Pencil, Plus, Search, Trash2, Download, X } from 'lucide-react';
 
 type TabId = 'navegantes' | 'patrones';
 
@@ -39,10 +41,14 @@ const GestionUsuarios: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [vessels, setVessels] = useState<NavigatorVessel[]>([]);
-  const [vesselForm, setVesselForm] = useState({ name: '', registration: '', type: '' });
+  const [vesselForm, setVesselForm] = useState({ name: '', registration: '', type: 'Motor' as VesselTypeId });
   const [patrolVessels, setPatrolVessels] = useState<PatrolVessel[]>([]);
-  const [patrolVesselForm, setPatrolVesselForm] = useState({ name: '', plate_number: '' });
-  const [importing, setImporting] = useState(false);
+  const [patrolVesselForm, setPatrolVesselForm] = useState({
+    name: '',
+    plate_number: '',
+    type: 'Motor' as VesselTypeId,
+  });
+  const [exporting, setExporting] = useState(false);
   const toast = useToast();
   const { isSuperAdmin, canWrite } = useAuth();
   const isFullAdmin = isSuperAdmin;
@@ -79,7 +85,7 @@ const GestionUsuarios: React.FC = () => {
     setEditing(null);
     setForm(emptyForm);
     setVessels([]);
-    setVesselForm({ name: '', registration: '', type: '' });
+    setVesselForm({ name: '', registration: '', type: 'Motor' });
     setModalOpen(true);
   };
 
@@ -189,7 +195,7 @@ const GestionUsuarios: React.FC = () => {
     try {
       await riverUsersService.createVessel(editing.id, vesselForm);
       toast.success('Embarcación agregada');
-      setVesselForm({ name: '', registration: '', type: '' });
+      setVesselForm({ name: '', registration: '', type: 'Motor' });
       const res = await riverUsersService.listVessels(editing.id);
       setVessels(res.vessels || []);
     } catch {
@@ -213,9 +219,14 @@ const GestionUsuarios: React.FC = () => {
     e.preventDefault();
     if (!editing) return;
     try {
-      await riverUsersService.createPatrolVessel(editing.id, patrolVesselForm);
+      await riverUsersService.createPatrolVessel(editing.id, {
+        brand: patrolVesselForm.name,
+        name: patrolVesselForm.name,
+        type: patrolVesselForm.type,
+        plate_number: patrolVesselForm.plate_number || patrolVesselForm.name,
+      });
       toast.success('Embarcación de auxilio agregada');
-      setPatrolVesselForm({ name: '', plate_number: '' });
+      setPatrolVesselForm({ name: '', plate_number: '', type: 'Motor' });
       const res = await riverUsersService.listPatrolVessels({ driverId: editing.id });
       setPatrolVessels(res.vessels || []);
     } catch {
@@ -235,41 +246,18 @@ const GestionUsuarios: React.FC = () => {
     }
   };
 
-  const parseCsvLine = (line: string) => {
-    const parts = line.split(/[,;]/).map((p) => p.trim().replace(/^"|"$/g, ''));
-    const [email, nombre, apellido, telefono, direccion, aseguradora, poliza] = parts;
-    return {
-      email,
-      nombre,
-      apellido,
-      telefono_numero: telefono,
-      direccion,
-      insurance_company: aseguradora,
-      policy_number: poliza,
-    };
-  };
-
-  const handleCsvImport = async (file: File) => {
-    setImporting(true);
+  const handleExportExcel = async () => {
+    setExporting(true);
     try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter((l) => l.trim());
-      const dataLines = lines[0]?.toLowerCase().includes('email') ? lines.slice(1) : lines;
-      const rows = dataLines.map(parseCsvLine).filter((r) => r.email && r.nombre && r.apellido);
-      if (rows.length === 0) {
-        toast.error('El CSV no tiene filas válidas (email, nombre, apellido)');
-        return;
-      }
-      const res = await riverUsersService.importNavigators(rows);
-      toast.success(`Importación: ${res.created} creados, ${res.skipped} omitidos`);
-      if (res.errors?.length) {
-        console.warn('Errores CSV:', res.errors);
-      }
-      load();
+      await riverUsersService.downloadUsersExcel({
+        role,
+        search: search || undefined,
+      });
+      toast.success('Excel descargado');
     } catch {
-      toast.error('Error al importar CSV');
+      toast.error('No se pudo exportar la tabla');
     } finally {
-      setImporting(false);
+      setExporting(false);
     }
   };
 
@@ -281,23 +269,15 @@ const GestionUsuarios: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Usuarios River Service</h1>
         <div className="flex flex-wrap gap-2">
-          {canWrite && activeTab === 'navegantes' && (
-            <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm cursor-pointer hover:bg-gray-50">
-              {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              Importar CSV
-              <input
-                type="file"
-                accept=".csv,.txt"
-                className="hidden"
-                disabled={importing}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleCsvImport(f);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-          )}
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={exporting}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Exportar Excel
+          </button>
           {canWrite && (
             <button
               type="button"
@@ -578,6 +558,7 @@ const GestionUsuarios: React.FC = () => {
                             >
                               <span>
                                 {v.name}
+                                {v.type ? ` · ${getVesselTypeLabel(v.type)}` : ''}
                                 {v.registration ? ` · ${v.registration}` : ''}
                               </span>
                               <button
@@ -591,18 +572,23 @@ const GestionUsuarios: React.FC = () => {
                           ))}
                         </ul>
                       )}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-3 mb-4">
                         <input
                           placeholder="Nombre embarcación"
-                          className="border rounded-lg px-3 py-2 text-sm"
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
                           value={vesselForm.name}
                           onChange={(e) => setVesselForm({ ...vesselForm, name: e.target.value })}
                         />
                         <input
                           placeholder="Matrícula"
-                          className="border rounded-lg px-3 py-2 text-sm"
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
                           value={vesselForm.registration}
                           onChange={(e) => setVesselForm({ ...vesselForm, registration: e.target.value })}
+                        />
+                        <VesselTypePicker
+                          value={vesselForm.type}
+                          onChange={(type) => setVesselForm({ ...vesselForm, type })}
+                          required
                         />
                       </div>
                       <button
@@ -631,7 +617,9 @@ const GestionUsuarios: React.FC = () => {
                           className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2"
                         >
                           <span>
-                            {[v.brand, v.model, v.plate_number].filter(Boolean).join(' · ')}
+                            {[v.brand, getVesselTypeLabel(v.specs?.hull_type || v.model), v.plate_number]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </span>
                           {canWrite && (
                             <button
@@ -648,20 +636,25 @@ const GestionUsuarios: React.FC = () => {
                   )}
                   {canWrite && (
                     <>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-3">
                         <input
-                          placeholder="Nombre / modelo"
-                          className="border rounded-lg px-3 py-2 text-sm"
+                          placeholder="Nombre de la unidad"
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
                           value={patrolVesselForm.name}
                           onChange={(e) => setPatrolVesselForm({ ...patrolVesselForm, name: e.target.value })}
                         />
                         <input
                           placeholder="Matrícula"
-                          className="border rounded-lg px-3 py-2 text-sm"
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
                           value={patrolVesselForm.plate_number}
                           onChange={(e) =>
                             setPatrolVesselForm({ ...patrolVesselForm, plate_number: e.target.value })
                           }
+                        />
+                        <VesselTypePicker
+                          value={patrolVesselForm.type}
+                          onChange={(type) => setPatrolVesselForm({ ...patrolVesselForm, type })}
+                          required
                         />
                       </div>
                       <button
