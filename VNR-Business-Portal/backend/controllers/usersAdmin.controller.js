@@ -753,6 +753,7 @@ export const updatePatrolVessel = async (req, res) => {
   try {
     const {
       driver_id,
+      unassign,
       brand,
       name,
       plate_number,
@@ -768,15 +769,26 @@ export const updatePatrolVessel = async (req, res) => {
 
     const { data: existing, error: fetchErr } = await supabaseAdmin
       .from('driver_vehicles')
-      .select('specs, brand')
+      .select(`
+        specs,
+        brand,
+        driver_id,
+        driver:driver_id (id, nombre, apellido, email)
+      `)
       .eq('id', req.params.id)
       .single();
 
     if (fetchErr) throw fetchErr;
 
+    const previousDriver = existing.driver || null;
     const payload = {};
 
-    if (driver_id !== undefined) payload.driver_id = driver_id;
+    if (unassign === true || driver_id === null) {
+      payload.driver_id = null;
+    } else if (driver_id !== undefined) {
+      payload.driver_id = driver_id;
+    }
+
     if (plate_number !== undefined) payload.plate_number = plate_number;
     if (capacity !== undefined) payload.capacity = capacity;
     if (color !== undefined) payload.color = color;
@@ -807,6 +819,15 @@ export const updatePatrolVessel = async (req, res) => {
       };
     }
 
+    const newDriverId =
+      unassign === true || driver_id === null ? null : driver_id ?? existing.driver_id;
+    const replaced =
+      previousDriver?.id &&
+      newDriverId &&
+      previousDriver.id !== newDriverId;
+    const unassigned =
+      (unassign === true || driver_id === null) && !!existing.driver_id;
+
     const { data, error } = await supabaseAdmin
       .from('driver_vehicles')
       .update(payload)
@@ -818,7 +839,14 @@ export const updatePatrolVessel = async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json({ success: true, vessel: data });
+
+    res.json({
+      success: true,
+      vessel: data,
+      previousDriver,
+      replaced: !!replaced,
+      unassigned: !!unassigned,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

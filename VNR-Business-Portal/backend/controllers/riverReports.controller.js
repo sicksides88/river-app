@@ -58,13 +58,13 @@ export const exportAuxiliosReport = async (req, res) => {
       ];
       const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const lines = [
-        headers.join(','),
+        headers.join(';'),
         ...rows.map((r) =>
           [
             r.id, r.status, r.riverStatus, r.emergencyType, r.navegante, r.naveganteEmail,
             r.patron, r.embarcacion, r.direccion, r.lat, r.lng, r.etaMinutes,
             r.created_at, r.completed_at,
-          ].map(escape).join(',')
+          ].map(escape).join(';')
         ),
       ];
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');

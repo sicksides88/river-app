@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, Search, X } from 'lucide-react';
+import FieldHelp from './FieldHelp';
 
 export interface SearchSelectOption {
   id: string;
@@ -20,6 +21,7 @@ interface SearchSelectProps {
   disabled?: boolean;
   emptyMessage?: string;
   allowClear?: boolean;
+  help?: string;
 }
 
 const SearchSelect: React.FC<SearchSelectProps> = ({
@@ -35,6 +37,7 @@ const SearchSelect: React.FC<SearchSelectProps> = ({
   disabled = false,
   emptyMessage = 'Sin resultados',
   allowClear = true,
+  help,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -94,7 +97,11 @@ const SearchSelect: React.FC<SearchSelectProps> = ({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="flex items-center text-sm font-medium text-gray-700 mb-1">
+        {label}
+        {required && !value && <span className="text-red-500 ml-0.5">*</span>}
+        {help && <FieldHelp text={help} />}
+      </label>
       <button
         type="button"
         disabled={disabled}

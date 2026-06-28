@@ -14,6 +14,7 @@ import {
   updateAdminVessel,
   deleteAdminVessel,
   importNavigatorsCSV,
+  exportUsersReport,
   listPatrolVessels,
   createPatrolVessel,
   updatePatrolVessel,
@@ -35,6 +36,8 @@ router.get("/reports/auxilios", riverCrm, exportAuxiliosReport);
 router.get("/patrol-vessels", riverCrm, listPatrolVessels);
 router.get("/staff", authorize("admin"), listCrmStaff);
 router.post("/staff", authorize("admin"), createCrmStaff);
+
+router.get("/users/export", riverCrm, exportUsersReport);
 
 router.get("/users/stats", authorize("admin"), getUserStats);
 

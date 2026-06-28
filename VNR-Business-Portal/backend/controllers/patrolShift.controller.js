@@ -95,6 +95,55 @@ export const createPatrolBase = async (req, res) => {
   }
 };
 
+/** PUT /api/admin/patrol-bases/:id */
+export const updatePatrolBase = async (req, res) => {
+  try {
+    const { name, address, latitude, longitude } = req.body;
+    const patch = { updated_at: new Date().toISOString() };
+    if (name !== undefined) patch.name = name;
+    if (address !== undefined) patch.address = address;
+    if (latitude !== undefined) patch.latitude = latitude;
+    if (longitude !== undefined) patch.longitude = longitude;
+
+    if (Object.keys(patch).length <= 1) {
+      return res.status(400).json({ success: false, message: 'Sin campos para actualizar' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('patrol_bases')
+      .update(patch)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Base no encontrada' });
+    }
+    res.json({ success: true, base: data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/** DELETE /api/admin/patrol-bases/:id */
+export const deletePatrolBase = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('patrol_bases')
+      .delete()
+      .eq('id', req.params.id)
+      .select('id, name')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Base no encontrada' });
+    }
+    res.json({ success: true, base: data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 /** GET /api/admin/patrol-shifts */
 export const listPatrolShifts = async (req, res) => {
   try {
@@ -155,12 +204,17 @@ export const createPatrolShift = async (req, res) => {
 /** PUT /api/admin/patrol-shifts/:id */
 export const updatePatrolShift = async (req, res) => {
   try {
-    const { status, startsAt, endsAt, baseId } = req.body;
-    const patch = {};
+    const { status, startsAt, endsAt, baseId, driverId } = req.body;
+    const patch = { updated_at: new Date().toISOString() };
     if (status) patch.status = status;
     if (startsAt) patch.starts_at = startsAt;
     if (endsAt) patch.ends_at = endsAt;
-    if (baseId !== undefined) patch.base_id = baseId;
+    if (baseId !== undefined) patch.base_id = baseId || null;
+    if (driverId) patch.driver_id = driverId;
+
+    if (Object.keys(patch).length <= 1) {
+      return res.status(400).json({ success: false, message: 'Sin campos para actualizar' });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('patrol_shifts')
@@ -173,6 +227,31 @@ export const updatePatrolShift = async (req, res) => {
       `)
       .single();
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+    }
+    res.json({ success: true, shift: data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/** DELETE /api/admin/patrol-shifts/:id */
+export const deletePatrolShift = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('patrol_shifts')
+      .delete()
+      .eq('id', req.params.id)
+      .select(`
+        id,
+        driver:driver_id (nombre, apellido)
+      `)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Turno no encontrado' });
+    }
     res.json({ success: true, shift: data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

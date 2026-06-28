@@ -52,7 +52,7 @@ const InformesRiver: React.FC = () => {
         status,
         limit: 2000,
       });
-      toast.success('CSV descargado');
+      toast.success('Excel descargado');
     } catch {
       toast.error('No se pudo exportar');
     } finally {
@@ -65,7 +65,7 @@ const InformesRiver: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Informes de auxilios</h1>
-          <p className="text-sm text-gray-500">Exportación Excel/CSV según contrato Fase 3</p>
+          <p className="text-sm text-gray-500">Exportación de auxilios a Excel</p>
         </div>
         <button
           type="button"
@@ -74,7 +74,7 @@ const InformesRiver: React.FC = () => {
           className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
         >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          Exportar CSV (Excel)
+          Exportar Excel
         </button>
       </div>
 

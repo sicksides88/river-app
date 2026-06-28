@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Layout } from '../../components/layout';
+import { ExportExcelButton } from '../../components/common';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { riverUsersService, CrmStaffProfile } from '../../services/riverUsers.service';
@@ -78,17 +79,32 @@ const GestionRoles: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Roles del CRM</h1>
           <p className="text-sm text-gray-500">Super Admin, Operador y Auditor (Fase 3)</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setForm(emptyForm);
-            setModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo operador / auditor
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <ExportExcelButton
+            filename="roles-crm-river"
+            headers={['nombre', 'apellido', 'email', 'rol', 'fecha_alta']}
+            getRows={() =>
+              staff.map((s) => [
+                s.nombre,
+                s.apellido,
+                s.email,
+                roleLabels[s.role] || s.role,
+                s.created_at ? new Date(s.created_at).toLocaleDateString('es-AR') : '',
+              ])
+            }
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setForm(emptyForm);
+              setModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo operador / auditor
+          </button>
+        </div>
       </div>
 
       {loading ? (

@@ -20,7 +20,7 @@ export interface RiverUserProfile {
 
 export interface PatrolVessel {
   id: string;
-  driver_id: string;
+  driver_id?: string | null;
   brand?: string;
   model?: string;
   plate_number?: string;
@@ -162,7 +162,8 @@ export const riverUsersService = {
   async updatePatrolVessel(
     vesselId: string,
     payload: Partial<{
-      driver_id: string;
+      driver_id: string | null;
+      unassign: boolean;
       brand: string;
       name: string;
       type: string;
@@ -173,7 +174,13 @@ export const riverUsersService = {
     }>
   ) {
     const { data } = await api.put(`/admin/patrol-vessels/${vesselId}`, payload);
-    return data;
+    return data as {
+      success: boolean;
+      vessel: PatrolVessel;
+      previousDriver?: { id: string; nombre: string; apellido: string } | null;
+      replaced?: boolean;
+      unassigned?: boolean;
+    };
   },
 
   async deletePatrolVessel(vesselId: string) {

@@ -21,6 +21,35 @@ function patrolVesselType(v: PatrolVessel) {
   return v.specs?.hull_type || v.model || '';
 }
 
+function patronDisplayName(driver?: { nombre?: string; apellido?: string } | null) {
+  if (!driver) return '';
+  return `${driver.nombre || ''} ${driver.apellido || ''}`.trim();
+}
+
+function formatPatrolFeedback(res: {
+  previousDriver?: { nombre: string; apellido: string } | null;
+  replaced?: boolean;
+  unassigned?: boolean;
+  vessel?: PatrolVessel;
+}, newPatronLabel?: string) {
+  if (res.unassigned && res.previousDriver) {
+    const prev = patronDisplayName(res.previousDriver);
+    return `Patrón desasignado. Antes: ${prev}. La embarcación quedó sin patrón.`;
+  }
+  if (res.replaced && res.previousDriver) {
+    const prev = patronDisplayName(res.previousDriver);
+    const next =
+      newPatronLabel ||
+      patronDisplayName(res.vessel?.driver) ||
+      'nuevo patrón';
+    return `Patrón reemplazado: ${prev} → ${next}`;
+  }
+  if (newPatronLabel) {
+    return `Patrón ${newPatronLabel} asignado correctamente`;
+  }
+  return 'Embarcación actualizada';
+}
+
 const emptyForm = {
   nombre: '',
   tipo: 'Motor' as VesselTypeId,
@@ -52,6 +81,7 @@ const GestionEmbarcaciones: React.FC = () => {
   const [reassignVesselLabel, setReassignVesselLabel] = useState('');
   const [reassignPatronId, setReassignPatronId] = useState('');
   const [reassignPatronLabel, setReassignPatronLabel] = useState('');
+  const [reassignVesselMeta, setReassignVesselMeta] = useState<PatrolVessel | null>(null);
   const [reassigning, setReassigning] = useState(false);
 
   // Editar embarcación
@@ -175,27 +205,79 @@ const GestionEmbarcaciones: React.FC = () => {
     }
   };
 
+  const resolveVesselMeta = async (id: string): Promise<PatrolVessel | null> => {
+    const local = vessels.find((v) => v.id === id);
+    if (local) return local;
+    const res = await riverUsersService.listPatrolVessels({});
+    return res.vessels?.find((v) => v.id === id) || null;
+  };
+
   const handleReassign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reassignVesselId || !reassignPatronId) {
       toast.error('Seleccioná la embarcación y el patrón');
       return;
     }
+
+    const current = reassignVesselMeta;
+    const prevName = patronDisplayName(current?.driver);
+    const newName = reassignPatronLabel;
+
+    if (current?.driver_id && current.driver_id !== reassignPatronId) {
+      const ok = window.confirm(
+        `Esta embarcación está asignada a ${prevName}.\n\n` +
+          `Al confirmar, el patrón se reemplazará automáticamente por ${newName}.\n\n¿Continuar?`
+      );
+      if (!ok) return;
+    }
+
     setReassigning(true);
     try {
-      await riverUsersService.updatePatrolVessel(reassignVesselId, {
+      const res = await riverUsersService.updatePatrolVessel(reassignVesselId, {
         driver_id: reassignPatronId,
       });
-      toast.success('Patrón asignado a la embarcación');
+      toast.success(formatPatrolFeedback(res, newName));
       setReassignVesselId('');
       setReassignVesselLabel('');
       setReassignPatronId('');
       setReassignPatronLabel('');
+      setReassignVesselMeta(null);
       load();
     } catch {
       toast.error('No se pudo asignar el patrón');
     } finally {
       setReassigning(false);
+    }
+  };
+
+  const handleUnassign = async (vesselId: string, vesselMeta?: PatrolVessel | null) => {
+    const meta = vesselMeta || (await resolveVesselMeta(vesselId));
+    const prevName = patronDisplayName(meta?.driver);
+    if (!meta?.driver_id) {
+      toast.error('Esta embarcación no tiene patrón asignado');
+      return;
+    }
+    const ok = window.confirm(
+      `¿Desasignar a ${prevName} de esta embarcación?\n\nLa embarcación quedará en la flota sin patrón hasta que asignes uno nuevo.`
+    );
+    if (!ok) return;
+
+    try {
+      const res = await riverUsersService.updatePatrolVessel(vesselId, { unassign: true });
+      toast.success(formatPatrolFeedback(res));
+      if (reassignVesselId === vesselId) {
+        setReassignVesselId('');
+        setReassignVesselLabel('');
+        setReassignVesselMeta(null);
+      }
+      if (editingVessel?.id === vesselId) {
+        setEditPatronId('');
+        setEditPatronLabel('');
+        setEditingVessel({ ...editingVessel, driver_id: null, driver: undefined });
+      }
+      load();
+    } catch {
+      toast.error('No se pudo desasignar el patrón. ¿Ejecutaste el patch SQL en Supabase?');
     }
   };
 
@@ -228,26 +310,46 @@ const GestionEmbarcaciones: React.FC = () => {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingVessel) return;
-    if (!editPatronId) {
-      toast.error('Seleccioná el patrón responsable');
-      return;
-    }
     if (!editForm.nombre.trim() && !editForm.matricula.trim()) {
       toast.error('Indicá al menos el nombre o la matrícula');
       return;
     }
+
+    const prevName = patronDisplayName(editingVessel.driver);
+    const patronChanged =
+      editPatronId && editingVessel.driver_id && editPatronId !== editingVessel.driver_id;
+
+    if (patronChanged) {
+      const ok = window.confirm(
+        `El patrón actual es ${prevName}.\n\n` +
+          `Se reemplazará por ${editPatronLabel} al guardar.\n\n¿Continuar?`
+      );
+      if (!ok) return;
+    }
+
+    if (!editPatronId && editingVessel.driver_id) {
+      toast.error('Usá "Desasignar patrón" si querés quitar al patrón actual');
+      return;
+    }
+
     setSaving(true);
     try {
-      await riverUsersService.updatePatrolVessel(editingVessel.id, {
-        driver_id: editPatronId,
+      const payload: Parameters<typeof riverUsersService.updatePatrolVessel>[1] = {
         brand: editForm.nombre.trim(),
         name: editForm.nombre.trim(),
         type: editForm.tipo,
         plate_number: editForm.matricula.trim() || editForm.nombre.trim(),
         capacity: Number(editForm.capacidad) || 6,
         color: editForm.color.trim() || undefined,
-      });
-      toast.success('Embarcación actualizada');
+      };
+      if (editPatronId) payload.driver_id = editPatronId;
+
+      const res = await riverUsersService.updatePatrolVessel(editingVessel.id, payload);
+      toast.success(
+        patronChanged
+          ? formatPatrolFeedback(res, editPatronLabel || undefined)
+          : 'Embarcación actualizada'
+      );
       closeEdit();
       load();
     } catch {
@@ -349,18 +451,25 @@ const GestionEmbarcaciones: React.FC = () => {
             Asignar o cambiar patrón
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Elegí una embarcación ya registrada y asignale un patrón (o cambiá el patrón actual).
+            Elegí una embarcación ya registrada y asignale un patrón. Si ya tenía otro patrón, se
+            reemplaza automáticamente y te avisamos al confirmar.
           </p>
-          <form onSubmit={handleReassign} className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+          <form onSubmit={handleReassign} className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <SearchSelect
               label="Embarcación existente"
               placeholder="Buscar embarcación…"
               searchPlaceholder="Nombre o matrícula"
               value={reassignVesselId}
               selectedLabel={reassignVesselLabel}
-              onChange={(id, opt) => {
+              onChange={async (id, opt) => {
                 setReassignVesselId(id);
                 setReassignVesselLabel(opt?.label || '');
+                if (id) {
+                  setReassignVesselMeta(await resolveVesselMeta(id));
+                } else {
+                  setReassignVesselMeta(null);
+                }
               }}
               onSearch={searchAllVessels}
               minSearchLength={0}
@@ -382,8 +491,9 @@ const GestionEmbarcaciones: React.FC = () => {
               minSearchLength={0}
               required
               emptyMessage="No hay patrones activos"
-              help="Patrón que operará esta embarcación a partir de ahora."
+              help="Patrón que operará esta embarcación. Reemplaza al patrón anterior si existía."
             />
+            <div className="flex flex-col gap-2 justify-end">
             <button
               type="submit"
               disabled={reassigning || !reassignVesselId || !reassignPatronId}
@@ -392,6 +502,29 @@ const GestionEmbarcaciones: React.FC = () => {
               {reassigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
               Asignar patrón
             </button>
+            <button
+              type="button"
+              disabled={!reassignVesselId || !reassignVesselMeta?.driver_id}
+              onClick={() => handleUnassign(reassignVesselId, reassignVesselMeta)}
+              className="inline-flex justify-center items-center gap-2 py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-40"
+            >
+              Desasignar patrón
+            </button>
+            </div>
+            </div>
+            {reassignVesselMeta?.driver && (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Patrón actual: <strong>{patronDisplayName(reassignVesselMeta.driver)}</strong>
+                {reassignPatronId && reassignPatronId !== reassignVesselMeta.driver_id && (
+                  <> — al asignar, se reemplazará por <strong>{reassignPatronLabel}</strong></>
+                )}
+              </p>
+            )}
+            {reassignVesselMeta && !reassignVesselMeta.driver_id && (
+              <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Esta embarcación no tiene patrón asignado.
+              </p>
+            )}
           </form>
         </section>
       )}
@@ -610,7 +743,13 @@ const GestionEmbarcaciones: React.FC = () => {
                     <td className="px-4 py-3 text-gray-600">{getVesselTypeLabel(patrolVesselType(v))}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{v.plate_number || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
-                      {v.driver ? `${v.driver.nombre} ${v.driver.apellido}` : '—'}
+                      {v.driver ? (
+                        patronDisplayName(v.driver)
+                      ) : (
+                        <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                          Sin patrón
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">{v.capacity != null ? `${v.capacity} pers.` : '—'}</td>
                     <td className="px-4 py-3">
@@ -672,21 +811,38 @@ const GestionEmbarcaciones: React.FC = () => {
             </div>
 
             <form onSubmit={handleUpdate} className="p-6 space-y-6">
-              <SearchSelect
-                label="Patrón asignado"
-                placeholder="Buscar patrón…"
-                searchPlaceholder="Nombre, apellido, email o teléfono"
-                value={editPatronId}
-                selectedLabel={editPatronLabel}
-                onChange={(id, opt) => {
-                  setEditPatronId(id);
-                  setEditPatronLabel(opt?.label || '');
-                }}
-                onSearch={searchPatrons}
-                minSearchLength={0}
-                required
-                help="Podés cambiar el patrón al que pertenece esta embarcación."
-              />
+              <div>
+                <SearchSelect
+                  label="Patrón asignado"
+                  placeholder={editPatronId ? 'Buscar patrón…' : 'Sin patrón — buscar para asignar'}
+                  searchPlaceholder="Nombre, apellido, email o teléfono"
+                  value={editPatronId}
+                  selectedLabel={editPatronLabel}
+                  onChange={(id, opt) => {
+                    setEditPatronId(id);
+                    setEditPatronLabel(opt?.label || '');
+                  }}
+                  onSearch={searchPatrons}
+                  minSearchLength={0}
+                  allowClear
+                  help="Podés cambiar el patrón o desasignarlo con el botón de abajo."
+                />
+                {editingVessel.driver && editPatronId && editPatronId !== editingVessel.driver_id && (
+                  <p className="mt-2 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    Se reemplazará <strong>{patronDisplayName(editingVessel.driver)}</strong> por{' '}
+                    <strong>{editPatronLabel}</strong> al guardar.
+                  </p>
+                )}
+                {editingVessel.driver_id && (
+                  <button
+                    type="button"
+                    onClick={() => handleUnassign(editingVessel.id, editingVessel)}
+                    className="mt-2 text-sm text-red-600 hover:underline"
+                  >
+                    Desasignar patrón actual
+                  </button>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
@@ -756,7 +912,7 @@ const GestionEmbarcaciones: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || !editPatronId}
+                  disabled={saving}
                   className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                 >
                   {saving ? 'Guardando…' : 'Guardar cambios'}

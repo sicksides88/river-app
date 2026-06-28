@@ -64,6 +64,27 @@ export interface PatronSearchResult {
   telefono_numero?: string;
 }
 
+export interface PatrolBase {
+  id: string;
+  name: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PatrolShift {
+  id: string;
+  driver_id: string;
+  base_id?: string | null;
+  starts_at: string;
+  ends_at: string;
+  status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+  driver?: { id: string; nombre?: string; apellido?: string; telefono_numero?: string };
+  base?: { id: string; name?: string } | null;
+}
+
 const formatPersonLabel = (person: { nombre?: string; apellido?: string; email?: string }) =>
   `${person.nombre || ''} ${person.apellido || ''}`.trim() || person.email || 'Sin nombre';
 
@@ -121,7 +142,7 @@ export const auxilioAdminService = {
 
   async listShifts(params?: { status?: string }) {
     const { data } = await api.get('/admin/patrol-shifts', { params });
-    return data as { success: boolean; shifts: Record<string, unknown>[] };
+    return data as { success: boolean; shifts: PatrolShift[] };
   },
 
   async createShift(payload: {
@@ -132,12 +153,31 @@ export const auxilioAdminService = {
     status?: string;
   }) {
     const { data } = await api.post('/admin/patrol-shifts', payload);
-    return data;
+    return data as { success: boolean; shift: PatrolShift };
+  },
+
+  async updateShift(
+    id: string,
+    payload: {
+      driverId?: string;
+      baseId?: string | null;
+      startsAt?: string;
+      endsAt?: string;
+      status?: string;
+    }
+  ) {
+    const { data } = await api.put(`/admin/patrol-shifts/${id}`, payload);
+    return data as { success: boolean; shift: PatrolShift };
+  },
+
+  async deleteShift(id: string) {
+    const { data } = await api.delete(`/admin/patrol-shifts/${id}`);
+    return data as { success: boolean; shift?: { id: string } };
   },
 
   async listBases() {
     const { data } = await api.get('/admin/patrol-bases');
-    return data as { success: boolean; bases: Record<string, unknown>[] };
+    return data as { success: boolean; bases: PatrolBase[] };
   },
 
   async createBase(payload: {
@@ -147,7 +187,25 @@ export const auxilioAdminService = {
     longitude?: number;
   }) {
     const { data } = await api.post('/admin/patrol-bases', payload);
-    return data;
+    return data as { success: boolean; base: PatrolBase };
+  },
+
+  async updateBase(
+    id: string,
+    payload: {
+      name?: string;
+      address?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+    }
+  ) {
+    const { data } = await api.put(`/admin/patrol-bases/${id}`, payload);
+    return data as { success: boolean; base: PatrolBase };
+  },
+
+  async deleteBase(id: string) {
+    const { data } = await api.delete(`/admin/patrol-bases/${id}`);
+    return data as { success: boolean; base?: { id: string; name?: string } };
   },
 
   async searchUsers(q: string) {
