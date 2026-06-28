@@ -751,17 +751,70 @@ export const createPatrolVessel = async (req, res) => {
 
 export const updatePatrolVessel = async (req, res) => {
   try {
-    const allowed = ['brand', 'model', 'plate_number', 'capacity', 'color', 'is_active', 'is_verified'];
+    const {
+      driver_id,
+      brand,
+      name,
+      plate_number,
+      capacity,
+      color,
+      is_active,
+      is_verified,
+      type,
+      hull_type,
+    } = req.body;
+
+    const vesselType = type || hull_type;
+
+    const { data: existing, error: fetchErr } = await supabaseAdmin
+      .from('driver_vehicles')
+      .select('specs, brand')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
     const payload = {};
-    allowed.forEach((k) => {
-      if (req.body[k] !== undefined) payload[k] = req.body[k];
-    });
+
+    if (driver_id !== undefined) payload.driver_id = driver_id;
+    if (plate_number !== undefined) payload.plate_number = plate_number;
+    if (capacity !== undefined) payload.capacity = capacity;
+    if (color !== undefined) payload.color = color;
+    if (is_active !== undefined) payload.is_active = is_active;
+    if (is_verified !== undefined) payload.is_verified = is_verified;
+
+    const displayName = (brand || name || existing.brand || '').trim();
+
+    if (displayName) payload.brand = displayName;
+
+    if (vesselType) {
+      if (!VESSEL_TYPES.includes(vesselType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Seleccioná un tipo de embarcación: Motor, Vela, Jetsky o Remo',
+        });
+      }
+      payload.model = vesselType;
+      payload.specs = {
+        ...(existing.specs || {}),
+        hull_type: vesselType,
+        ...(displayName ? { display_name: displayName } : {}),
+      };
+    } else if (displayName) {
+      payload.specs = {
+        ...(existing.specs || {}),
+        display_name: displayName,
+      };
+    }
 
     const { data, error } = await supabaseAdmin
       .from('driver_vehicles')
       .update(payload)
       .eq('id', req.params.id)
-      .select()
+      .select(`
+        *,
+        driver:driver_id (id, nombre, apellido, email, driver_status)
+      `)
       .single();
 
     if (error) throw error;

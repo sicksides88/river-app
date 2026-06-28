@@ -6,7 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { auxilioAdminService } from '../../services/auxilioAdmin.service';
 import { riverUsersService, PatrolVessel } from '../../services/riverUsers.service';
 import { getVesselTypeLabel, VesselTypeId } from '../../constants/vesselTypes';
-import { Anchor, Loader2, Plus, Search, Ship, Trash2, User } from 'lucide-react';
+import { Anchor, Loader2, Pencil, Plus, Search, Ship, Trash2, User, UserPlus, X } from 'lucide-react';
+import { VESSEL_TYPE_IDS } from '../../constants/vesselTypes';
 
 function patrolVesselDisplayName(v: PatrolVessel) {
   const name = v.brand || v.model;
@@ -45,6 +46,19 @@ const GestionEmbarcaciones: React.FC = () => {
   const [formPatronId, setFormPatronId] = useState('');
   const [formPatronLabel, setFormPatronLabel] = useState('');
   const [form, setForm] = useState(emptyForm);
+
+  // Reasignar patrón en embarcación existente
+  const [reassignVesselId, setReassignVesselId] = useState('');
+  const [reassignVesselLabel, setReassignVesselLabel] = useState('');
+  const [reassignPatronId, setReassignPatronId] = useState('');
+  const [reassignPatronLabel, setReassignPatronLabel] = useState('');
+  const [reassigning, setReassigning] = useState(false);
+
+  // Editar embarcación
+  const [editingVessel, setEditingVessel] = useState<PatrolVessel | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editPatronId, setEditPatronId] = useState('');
+  const [editPatronLabel, setEditPatronLabel] = useState('');
 
   const toast = useToast();
   const { canWrite } = useAuth();
@@ -86,6 +100,17 @@ const GestionEmbarcaciones: React.FC = () => {
         : v.plate_number || undefined,
     }));
   }, [filterPatronId]);
+
+  const searchAllVessels = useCallback(async (query: string): Promise<SearchSelectOption[]> => {
+    const res = await riverUsersService.listPatrolVessels({ search: query || undefined });
+    return (res.vessels || []).map((v) => ({
+      id: v.id,
+      label: patrolVesselDisplayName(v),
+      sublabel: v.driver
+        ? `Patrón actual: ${v.driver.nombre} ${v.driver.apellido}`
+        : 'Sin patrón asignado',
+    }));
+  }, []);
 
   const handleFilterPatron = (id: string, option: SearchSelectOption | null) => {
     setFilterPatronId(id);
@@ -150,6 +175,88 @@ const GestionEmbarcaciones: React.FC = () => {
     }
   };
 
+  const handleReassign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reassignVesselId || !reassignPatronId) {
+      toast.error('Seleccioná la embarcación y el patrón');
+      return;
+    }
+    setReassigning(true);
+    try {
+      await riverUsersService.updatePatrolVessel(reassignVesselId, {
+        driver_id: reassignPatronId,
+      });
+      toast.success('Patrón asignado a la embarcación');
+      setReassignVesselId('');
+      setReassignVesselLabel('');
+      setReassignPatronId('');
+      setReassignPatronLabel('');
+      load();
+    } catch {
+      toast.error('No se pudo asignar el patrón');
+    } finally {
+      setReassigning(false);
+    }
+  };
+
+  const openEdit = (v: PatrolVessel) => {
+    const tipoRaw = patrolVesselType(v);
+    const tipo = VESSEL_TYPE_IDS.includes(tipoRaw as VesselTypeId)
+      ? (tipoRaw as VesselTypeId)
+      : 'Motor';
+    setEditingVessel(v);
+    setEditForm({
+      nombre: v.brand || v.specs?.display_name || '',
+      tipo,
+      matricula: v.plate_number || '',
+      capacidad: String(v.capacity ?? 6),
+      color: v.color || '',
+    });
+    setEditPatronId(v.driver_id || '');
+    setEditPatronLabel(
+      v.driver ? `${v.driver.nombre} ${v.driver.apellido}`.trim() : ''
+    );
+  };
+
+  const closeEdit = () => {
+    setEditingVessel(null);
+    setEditForm(emptyForm);
+    setEditPatronId('');
+    setEditPatronLabel('');
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVessel) return;
+    if (!editPatronId) {
+      toast.error('Seleccioná el patrón responsable');
+      return;
+    }
+    if (!editForm.nombre.trim() && !editForm.matricula.trim()) {
+      toast.error('Indicá al menos el nombre o la matrícula');
+      return;
+    }
+    setSaving(true);
+    try {
+      await riverUsersService.updatePatrolVessel(editingVessel.id, {
+        driver_id: editPatronId,
+        brand: editForm.nombre.trim(),
+        name: editForm.nombre.trim(),
+        type: editForm.tipo,
+        plate_number: editForm.matricula.trim() || editForm.nombre.trim(),
+        capacity: Number(editForm.capacidad) || 6,
+        color: editForm.color.trim() || undefined,
+      });
+      toast.success('Embarcación actualizada');
+      closeEdit();
+      load();
+    } catch {
+      toast.error('Error al actualizar la embarcación');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const displayedVessels = quickVesselId
     ? vessels.filter((v) => v.id === quickVesselId)
     : vessels;
@@ -160,8 +267,8 @@ const GestionEmbarcaciones: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Embarcaciones de auxilio</h1>
           <p className="text-sm text-gray-500 mt-1 max-w-xl">
-            Cada embarcación de la flota pertenece a un patrón. Desde acá podés registrarlas,
-            buscarlas por nombre o matrícula y exportar la tabla a Excel.
+            Cada embarcación pertenece a un patrón. Podés registrar nuevas, editarlas o reasignar el patrón
+            de embarcaciones ya existentes.
           </p>
         </div>
         <ExportExcelButton
@@ -234,7 +341,62 @@ const GestionEmbarcaciones: React.FC = () => {
         </div>
       </section>
 
-      {/* —— Alta: asignar embarcación a patrón —— */}
+      {/* —— Reasignar patrón a embarcación existente —— */}
+      {canWrite && (
+        <section className="bg-white rounded-xl shadow border border-amber-100 p-5 mb-6">
+          <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-1 flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-amber-600" />
+            Asignar o cambiar patrón
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Elegí una embarcación ya registrada y asignale un patrón (o cambiá el patrón actual).
+          </p>
+          <form onSubmit={handleReassign} className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+            <SearchSelect
+              label="Embarcación existente"
+              placeholder="Buscar embarcación…"
+              searchPlaceholder="Nombre o matrícula"
+              value={reassignVesselId}
+              selectedLabel={reassignVesselLabel}
+              onChange={(id, opt) => {
+                setReassignVesselId(id);
+                setReassignVesselLabel(opt?.label || '');
+              }}
+              onSearch={searchAllVessels}
+              minSearchLength={0}
+              required
+              emptyMessage="No hay embarcaciones en la flota"
+              help="Embarcación de auxilio que querés vincular o reasignar a un patrón."
+            />
+            <SearchSelect
+              label="Patrón"
+              placeholder="Buscar patrón…"
+              searchPlaceholder="Nombre, email o teléfono"
+              value={reassignPatronId}
+              selectedLabel={reassignPatronLabel}
+              onChange={(id, opt) => {
+                setReassignPatronId(id);
+                setReassignPatronLabel(opt?.label || '');
+              }}
+              onSearch={searchPatrons}
+              minSearchLength={0}
+              required
+              emptyMessage="No hay patrones activos"
+              help="Patrón que operará esta embarcación a partir de ahora."
+            />
+            <button
+              type="submit"
+              disabled={reassigning || !reassignVesselId || !reassignPatronId}
+              className="inline-flex justify-center items-center gap-2 py-2.5 px-4 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+            >
+              {reassigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+              Asignar patrón
+            </button>
+          </form>
+        </section>
+      )}
+
+      {/* —— Alta: nueva embarcación —— */}
       {canWrite && (
         <section className="mb-6">
           {!showForm ? (
@@ -462,14 +624,24 @@ const GestionEmbarcaciones: React.FC = () => {
                     </td>
                     {canWrite && (
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(v.id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                          title="Eliminar embarcación"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(v)}
+                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="Editar embarcación"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(v.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            title="Eliminar embarcación"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -477,6 +649,121 @@ const GestionEmbarcaciones: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* —— Modal editar embarcación —— */}
+      {editingVessel && canWrite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-blue-50">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Pencil className="w-5 h-5 text-blue-600" />
+                  Editar embarcación
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Modificá datos o reasigná el patrón responsable.
+                </p>
+              </div>
+              <button type="button" onClick={closeEdit} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdate} className="p-6 space-y-6">
+              <SearchSelect
+                label="Patrón asignado"
+                placeholder="Buscar patrón…"
+                searchPlaceholder="Nombre, apellido, email o teléfono"
+                value={editPatronId}
+                selectedLabel={editPatronLabel}
+                onChange={(id, opt) => {
+                  setEditPatronId(id);
+                  setEditPatronLabel(opt?.label || '');
+                }}
+                onSearch={searchPatrons}
+                minSearchLength={0}
+                required
+                help="Podés cambiar el patrón al que pertenece esta embarcación."
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <FieldLabel
+                    htmlFor="edit-nombre"
+                    label="Nombre de la embarcación"
+                    required
+                    help="Nombre operativo de la lancha."
+                  />
+                  <input
+                    id="edit-nombre"
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                    value={editForm.nombre}
+                    onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <VesselTypePicker
+                    value={editForm.tipo}
+                    onChange={(tipo) => setEditForm({ ...editForm, tipo })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel htmlFor="edit-matricula" label="Matrícula" help="Dominio o registro náutico." />
+                  <input
+                    id="edit-matricula"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                    value={editForm.matricula}
+                    onChange={(e) => setEditForm({ ...editForm, matricula: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel htmlFor="edit-capacidad" label="Capacidad" help="Personas incluido el patrón." />
+                  <input
+                    id="edit-capacidad"
+                    type="number"
+                    min={1}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                    value={editForm.capacidad}
+                    onChange={(e) => setEditForm({ ...editForm, capacidad: e.target.value })}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <FieldLabel htmlFor="edit-color" label="Color" help="Opcional." />
+                  <input
+                    id="edit-color"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                    value={editForm.color}
+                    onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !editPatronId}
+                  className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {saving ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </Layout>

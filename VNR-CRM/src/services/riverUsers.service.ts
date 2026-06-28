@@ -161,7 +161,16 @@ export const riverUsersService = {
 
   async updatePatrolVessel(
     vesselId: string,
-    payload: Partial<{ brand: string; model: string; plate_number: string; capacity: number; color: string; is_active: boolean }>
+    payload: Partial<{
+      driver_id: string;
+      brand: string;
+      name: string;
+      type: string;
+      plate_number: string;
+      capacity: number;
+      color: string;
+      is_active: boolean;
+    }>
   ) {
     const { data } = await api.put(`/admin/patrol-vessels/${vesselId}`, payload);
     return data;
